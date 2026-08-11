@@ -1,0 +1,10 @@
+.venv/
+data/
+queries.npy
+storage/
+snapshots/
+config/
+qdrant
+qdrant.tar.gz
+*.log
+__pycache__/

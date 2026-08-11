@@ -1,0 +1,14 @@
+config,oversampling,recall,p50_ms,p95_ms,p99_ms,mean_ms
+exact (ground truth),None,1.0,8.495,8.7,8.804,8.477
+HNSW, no quantization,None,0.9877,2.007,2.252,2.433,1.995
+BQ, no rescore,1.0,0.6873,0.977,1.061,1.116,0.985
+BQ + rescore, oversampling 1x,1.0,0.9496,1.053,1.143,1.207,1.061
+BQ + rescore, oversampling 1.5x,1.5,0.977,1.124,1.322,1.448,1.146
+BQ + rescore, oversampling 2x,2.0,0.9871,1.191,1.312,1.386,1.201
+BQ + rescore, oversampling 3x,3.0,0.9946,1.332,1.488,1.643,1.351
+BQ + rescore, oversampling 4x,4.0,0.9972,1.462,1.659,1.782,1.482
+BQ + rescore, oversampling 5x,5.0,0.9982,1.592,1.828,1.959,1.617
+BQ + rescore, oversampling 6x,6.0,0.9988,1.712,1.94,2.101,1.733
+BQ + rescore, oversampling 8x,8.0,0.9992,1.933,2.19,2.327,1.956
+BQ + rescore, oversampling 12x,12.0,0.9997,2.378,2.7,3.151,2.421
+BQ + rescore, oversampling 16x,16.0,0.9997,2.791,3.098,3.244,2.815

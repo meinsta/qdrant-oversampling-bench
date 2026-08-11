@@ -1,0 +1,119 @@
+[
+  {
+    "config": "exact (ground truth)",
+    "recall": 1.0,
+    "p50_ms": 8.495,
+    "p95_ms": 8.7,
+    "p99_ms": 8.804,
+    "mean_ms": 8.477,
+    "oversampling": null
+  },
+  {
+    "config": "HNSW, no quantization",
+    "recall": 0.9877,
+    "p50_ms": 2.007,
+    "p95_ms": 2.252,
+    "p99_ms": 2.433,
+    "mean_ms": 1.995,
+    "oversampling": null
+  },
+  {
+    "config": "BQ, no rescore",
+    "recall": 0.6873,
+    "p50_ms": 0.977,
+    "p95_ms": 1.061,
+    "p99_ms": 1.116,
+    "mean_ms": 0.985,
+    "oversampling": 1.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 1x",
+    "recall": 0.9496,
+    "p50_ms": 1.053,
+    "p95_ms": 1.143,
+    "p99_ms": 1.207,
+    "mean_ms": 1.061,
+    "oversampling": 1.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 1.5x",
+    "recall": 0.977,
+    "p50_ms": 1.124,
+    "p95_ms": 1.322,
+    "p99_ms": 1.448,
+    "mean_ms": 1.146,
+    "oversampling": 1.5
+  },
+  {
+    "config": "BQ + rescore, oversampling 2x",
+    "recall": 0.9871,
+    "p50_ms": 1.191,
+    "p95_ms": 1.312,
+    "p99_ms": 1.386,
+    "mean_ms": 1.201,
+    "oversampling": 2.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 3x",
+    "recall": 0.9946,
+    "p50_ms": 1.332,
+    "p95_ms": 1.488,
+    "p99_ms": 1.643,
+    "mean_ms": 1.351,
+    "oversampling": 3.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 4x",
+    "recall": 0.9972,
+    "p50_ms": 1.462,
+    "p95_ms": 1.659,
+    "p99_ms": 1.782,
+    "mean_ms": 1.482,
+    "oversampling": 4.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 5x",
+    "recall": 0.9982,
+    "p50_ms": 1.592,
+    "p95_ms": 1.828,
+    "p99_ms": 1.959,
+    "mean_ms": 1.617,
+    "oversampling": 5.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 6x",
+    "recall": 0.9988,
+    "p50_ms": 1.712,
+    "p95_ms": 1.94,
+    "p99_ms": 2.101,
+    "mean_ms": 1.733,
+    "oversampling": 6.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 8x",
+    "recall": 0.9992,
+    "p50_ms": 1.933,
+    "p95_ms": 2.19,
+    "p99_ms": 2.327,
+    "mean_ms": 1.956,
+    "oversampling": 8.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 12x",
+    "recall": 0.9997,
+    "p50_ms": 2.378,
+    "p95_ms": 2.7,
+    "p99_ms": 3.151,
+    "mean_ms": 2.421,
+    "oversampling": 12.0
+  },
+  {
+    "config": "BQ + rescore, oversampling 16x",
+    "recall": 0.9997,
+    "p50_ms": 2.791,
+    "p95_ms": 3.098,
+    "p99_ms": 3.244,
+    "mean_ms": 2.815,
+    "oversampling": 16.0
+  }
+]

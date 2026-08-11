@@ -1,0 +1,4 @@
+qdrant-client
+numpy
+pyarrow
+huggingface_hub
