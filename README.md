@@ -62,7 +62,8 @@ docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant:v1.19.0
 ```
 
 Add a configuration by appending to `CONFIGS` in `bench.py`. Scalar quantization is a one-line
-change there.
+change there. `python test_bench.py` checks the recall math and that the published CSVs still
+agree with the JSON.
 
 ## Method
 
