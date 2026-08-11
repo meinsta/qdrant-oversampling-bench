@@ -90,3 +90,7 @@ agree with the JSON.
   its components, and 1536d OpenAI vectors are close to its best case. Re-run before quoting
   these numbers for a different model.
 - **One node, 100k vectors.** Both curves shift with collection size and shard count.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
