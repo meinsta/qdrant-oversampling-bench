@@ -7,7 +7,7 @@ qdrant.tech/documentation/tutorials-search-engineering/ann-recall/#automate-in-c
 usage: python bench.py ingest
        python bench.py bench [k]     # k defaults to 10
 """
-import glob, json, statistics, sys, time
+import csv, glob, json, statistics, sys, time
 
 import numpy as np
 import pyarrow.parquet as pq
@@ -101,6 +101,11 @@ def run(queries, params):
     return ids, lat
 
 
+def recall_at_k(ids, truth, k):
+    """Mean overlap between approximate and exact id sets, divided by k."""
+    return statistics.fmean(len(a & b) / k for a, b in zip(ids, truth))
+
+
 def bench():
     queries = np.load("queries.npy")
     print("warmup", flush=True)
@@ -114,7 +119,7 @@ def bench():
             truth = ids
             recall = 1.0
         else:
-            recall = statistics.fmean(len(a & b) / K for a, b in zip(ids, truth))
+            recall = recall_at_k(ids, truth, K)
         lat.sort()
         row = dict(config=label, recall=round(recall, 4),
                    p50_ms=round(statistics.median(lat), 3),
@@ -126,10 +131,18 @@ def bench():
         print(json.dumps(row), flush=True)
 
     json.dump(rows, open(f"results_k{K}.json", "w"), indent=2)
-    with open(f"results_k{K}.csv", "w") as f:
-        f.write("config,oversampling,recall,p50_ms,p95_ms,p99_ms,mean_ms\n")
-        for r in rows:
-            f.write(f"{r['config']},{r['oversampling']},{r['recall']},{r['p50_ms']},{r['p95_ms']},{r['p99_ms']},{r['mean_ms']}\n")
+    write_csv(rows, f"results_k{K}.csv")
+
+
+FIELDS = ["config", "oversampling", "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms"]
+
+
+def write_csv(rows, path):
+    # config labels contain commas, so quote properly instead of hand-joining
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, FIELDS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
 
 
 if __name__ == "__main__":
