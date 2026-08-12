@@ -111,9 +111,9 @@
   <h1>Keep your recall: rescoring and oversampling</h1>
   <p class="sub">
     Compression trades some accuracy for speed and memory, and rescoring gives most of that accuracy
-    back at almost no cost in speed. Set the <code>rescore</code> parameter on your search request and
-    Qdrant re-ranks the compressed candidates against the original vectors before returning results.
-    Raise <code>oversampling</code> to widen that candidate pool.
+    back. Set the <code>rescore</code> parameter on your search request and Qdrant re-ranks the
+    compressed candidates against the original vectors before returning results. Raise
+    <code>oversampling</code> to widen that candidate pool.
   </p>
 
   <figure>
@@ -301,9 +301,10 @@ function draw() {
   const o10 = offRow(10), o100 = offRow(100), f10 = sweep(10)[0], f100 = sweep(100)[0];
   const t10 = sweep(10)[OS.length - 1], t100 = sweep(100)[OS.length - 1];
   document.getElementById("verdict").innerHTML =
-    `Each curve starts at the cross, where rescoring is off. Nothing above that line exists without
-     it: with rescoring off, sweeping oversampling 1&times; to 16&times; moves recall by less than
-     0.002, so every point of recall on these curves is rescoring's. <b>Switching it on is where
+    `Each curve starts at a cross: binary quantization with <code>rescore</code> off, ranking on the
+     compressed vectors alone and never reading the originals. Nothing above that point exists without
+     rescoring &mdash; with it off, sweeping oversampling 1&times; to 16&times; moves recall by less
+     than 0.002, because a wider candidate pool is useless if nothing re-ranks it. <b>Switching it on is where
      almost all of it arrives, and it is close to free</b> &mdash; ${o10.r.toFixed(4)} to
      ${f10.r.toFixed(4)} ${(f10.lo - o10.lo) <= 0.02 ? "at no measurable cost" : "for +" + (f10.lo - o10.lo).toFixed(2) + " ms"} at k=10,
      and ${o100.r.toFixed(4)} to ${f100.r.toFixed(4)} for +${(f100.lo - o100.lo).toFixed(2)} ms at k=100.
