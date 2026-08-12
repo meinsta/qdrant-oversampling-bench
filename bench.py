@@ -148,24 +148,33 @@ def bench():
     print("warmup", flush=True)
     run(queries[:200], CONFIGS[1][1])
 
+    # Passes are INTERLEAVED: every configuration is measured once per round, rather than
+    # all its passes back-to-back. Nesting passes inside a configuration lets one contended
+    # window land entirely on one point - it once put two measurements of an identical
+    # search 2x apart. Round-robin spreads any drift across the whole curve instead.
+    passes = {label: [] for label, _ in CONFIGS}
+    first_ids = {}
+    for rnd in range(REPS):
+        for label, params in CONFIGS:
+            ids, lat = run(queries, params)
+            lat.sort()
+            passes[label].append(lat)
+            first_ids.setdefault(label, ids)
+        print(f"round {rnd + 1}/{REPS} done", flush=True)
+
     rows = []
     truth = None
     for label, params in CONFIGS:
-        # Recall is deterministic, so one pass settles it. Latency is not: a single
-        # contended window moved a published p95 by 2.3x, so each percentile is the
-        # median of REPS passes, and p95_spread keeps that variation visible.
-        reps = []
-        ids = None
-        for _ in range(REPS):
-            ids, lat = run(queries, params)
-            lat.sort()
-            reps.append(lat)
+        # Recall is deterministic, so one pass settles it; latency takes the median of rounds.
+        ids = first_ids[label]
+        reps = passes[label]
         if truth is None:
             truth = ids
             recall = 1.0
         else:
             recall = recall_at_k(ids, truth, K)
         p95s = [pct(l, 0.95) for l in reps]
+        p50s = [statistics.median(l) for l in reps]
         q = params.get("quantization")
         row = dict(config=label, limit=K,
                    oversampling=q.oversampling if q else None,
@@ -173,8 +182,14 @@ def bench():
                    hnsw_ef=params.get("hnsw_ef"),
                    exact=bool(params.get("exact")),
                    recall=round(recall, 4),
-                   p50_ms=round(statistics.median([statistics.median(l) for l in reps]), 3),
+                   p50_ms=round(statistics.median(p50s), 3),
                    p95_ms=round(statistics.median(p95s), 3),
+                   # Contention is one-sided: it only ever adds time. The fastest pass is
+                   # therefore the best estimate of the engine's own cost, and the median
+                   # still carries whatever contention every pass happened to share.
+                   p50_min_ms=round(min(p50s), 3),
+                   p95_min_ms=round(min(p95s), 3),
+                   p95_max_ms=round(max(p95s), 3),
                    p99_ms=round(statistics.median([pct(l, 0.99) for l in reps]), 3),
                    mean_ms=round(statistics.median([statistics.fmean(l) for l in reps]), 3),
                    p95_spread_ms=round(max(p95s) - min(p95s), 3),
@@ -187,7 +202,8 @@ def bench():
 
 
 FIELDS = ["config", "limit", "oversampling", "rescore", "hnsw_ef", "exact",
-          "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms", "p95_spread_ms", "reps"]
+          "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms",
+          "p50_min_ms", "p95_min_ms", "p95_max_ms", "p95_spread_ms", "reps"]
 
 
 def write_csv(rows, path):

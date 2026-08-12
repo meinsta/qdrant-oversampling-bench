@@ -1,0 +1,276 @@
+<title>Keep your recall: rescoring and oversampling</title>
+<style>
+  :root {
+    color-scheme: light;
+    --ground:    #f7f8f9;
+    --surface:   #ffffff;
+    --ink:       #161a21;
+    --ink-2:     #454e5c;
+    --muted:     #5d6672;
+    --rule:      #dfe3e8;
+    --rule-soft: #ebeef1;
+    --k10:       #2a78d6;
+    --k100:      #eb6834;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground:    #12151b;
+      --surface:   #171b22;
+      --ink:       #e6eaf0;
+      --ink-2:     #b3bcc9;
+      --muted:     #939dab;
+      --rule:      #272e39;
+      --rule-soft: #1d232b;
+      --k10:       #3987e5;
+      --k100:      #d95926;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground:    #12151b;
+    --surface:   #171b22;
+    --ink:       #e6eaf0;
+    --ink-2:     #b3bcc9;
+    --muted:     #939dab;
+    --rule:      #272e39;
+    --rule-soft: #1d232b;
+    --k10:       #3987e5;
+    --k100:      #d95926;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font: 400 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0; padding: 0 20px 64px; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding-top: 48px; }
+
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: .15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 14px;
+  }
+  h1 { font-size: clamp(28px, 4.2vw, 40px); line-height: 1.12; letter-spacing: -.02em;
+       font-weight: 700; margin: 0 0 18px; text-wrap: balance; }
+  .sub { font-size: 18px; line-height: 1.55; color: var(--ink-2); margin: 0 0 32px; max-width: 66ch; }
+  code { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: .92em; }
+
+  figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 26px 26px 18px; }
+  .chart-eyebrow {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted);
+  }
+  .chart-title { font-size: 17px; font-weight: 600; color: var(--ink); margin: 9px 0 16px; }
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 6px; }
+  .legend span {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px; color: var(--ink-2);
+  }
+  .plot { width: 100%; overflow-x: auto; }
+  svg { display: block; }
+  svg text { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11.5px; fill: var(--muted); }
+  .axis-title { font-size: 11px; fill: var(--muted); letter-spacing: .1em; }
+  .plabel { font-size: 11px; fill: var(--ink-2); }
+  .spec-k { font-size: 9.5px; letter-spacing: .1em; fill: var(--muted); }
+  .spec-v { font-size: 10.5px; fill: var(--ink-2); }
+  .grid { stroke: var(--rule-soft); stroke-width: 1; }
+  .axis { stroke: var(--rule); stroke-width: 1; }
+  .hit { fill: transparent; cursor: crosshair; }
+
+  figcaption { margin-top: 18px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .tip {
+    position: fixed; pointer-events: none; opacity: 0; transition: opacity .08s;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 9px 11px; font-size: 12.5px; line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; box-shadow: 0 6px 22px rgba(0,0,0,.13); z-index: 20; white-space: nowrap;
+  }
+  .tip b { font-weight: 600; }
+
+  .more { margin-top: 26px; font-size: 15px; }
+  a { color: var(--k10); text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--k10); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">02 &mdash; What you get</div>
+  <h1>Keep your recall: rescoring and oversampling</h1>
+  <p class="sub">
+    Compression trades some accuracy for speed and memory, and rescoring gives most of that accuracy
+    back at almost no cost in speed. Set the <code>rescore</code> parameter on your search request and
+    Qdrant re-ranks the compressed candidates against the original vectors before returning results.
+    Raise <code>oversampling</code> to widen that candidate pool.
+  </p>
+
+  <figure>
+    <div class="chart-eyebrow" id="c-eyebrow">Recall@k vs p95 latency, oversampling 1&times; &rarr; 16&times;</div>
+    <div class="chart-title">How much latency you pay for each point of recall that oversampling adds.</div>
+    <div class="legend">
+      <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--k10)"/></svg>k=10</span>
+      <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--k100)"/></svg>k=100</span>
+      <span><svg width="15" height="13" aria-hidden="true"><rect x="2" y="2" width="10" height="10" fill="none" stroke="var(--muted)" stroke-width="2"/></svg>HNSW, no quantization</span>
+    </div>
+    <div class="plot"><svg id="chart" role="img"></svg></div>
+    <figcaption id="verdict"></figcaption>
+  </figure>
+
+  <p class="more"><a href="https://github.com/meinsta/qdrant-oversampling-bench">Learn how rescoring works &rarr;</a></p>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+const DATA = {"10":[{"c":"exact (ground truth)","ef":null,"ex":true,"hi":12.474,"lo":8.579,"o":null,"p50":9.202,"p95":10.203,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"hi":4.0,"lo":1.924,"o":null,"p50":1.766,"p95":2.766,"r":0.9943,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"hi":2.571,"lo":1.979,"o":null,"p50":1.744,"p95":2.169,"r":0.9943,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"hi":3.287,"lo":2.164,"o":null,"p50":1.972,"p95":2.271,"r":0.9956,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"hi":5.029,"lo":2.783,"o":null,"p50":2.423,"p95":2.817,"r":0.9976,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"hi":7.237,"lo":3.565,"o":null,"p50":3.176,"p95":4.011,"r":0.9987,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"hi":8.166,"lo":4.816,"o":null,"p50":4.839,"p95":7.12,"r":0.9992,"rs":null},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"hi":1.026,"lo":0.737,"o":1.0,"p50":0.664,"p95":0.86,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"hi":0.81,"lo":0.716,"o":1.5,"p50":0.636,"p95":0.75,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"hi":0.807,"lo":0.685,"o":2.0,"p50":0.638,"p95":0.756,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"hi":0.909,"lo":0.669,"o":3.0,"p50":0.64,"p95":0.695,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"hi":1.74,"lo":0.657,"o":4.0,"p50":0.623,"p95":0.68,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"hi":0.982,"lo":0.669,"o":5.0,"p50":0.632,"p95":0.775,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"hi":1.195,"lo":0.677,"o":6.0,"p50":0.631,"p95":0.729,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"hi":1.243,"lo":0.701,"o":8.0,"p50":0.661,"p95":0.851,"r":0.6725,"rs":false},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"hi":0.922,"lo":0.684,"o":12.0,"p50":0.659,"p95":0.745,"r":0.6732,"rs":false},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"hi":1.072,"lo":0.727,"o":16.0,"p50":0.655,"p95":0.768,"r":0.6736,"rs":false},{"c":"BQ, no rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":1.1,"lo":0.848,"o":1.0,"p50":0.734,"p95":0.911,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":1.102,"lo":0.833,"o":1.5,"p50":0.722,"p95":0.919,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":0.912,"lo":0.768,"o":2.0,"p50":0.712,"p95":0.862,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":0.984,"lo":0.806,"o":3.0,"p50":0.718,"p95":0.889,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":1.053,"lo":0.777,"o":4.0,"p50":0.716,"p95":0.948,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":1.001,"lo":0.798,"o":5.0,"p50":0.72,"p95":0.937,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":1.076,"lo":0.762,"o":6.0,"p50":0.73,"p95":0.845,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":1.073,"lo":0.919,"o":8.0,"p50":0.733,"p95":0.947,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":1.308,"lo":0.805,"o":12.0,"p50":0.733,"p95":0.867,"r":0.6743,"rs":false},{"c":"BQ, no rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":2.53,"lo":0.819,"o":16.0,"p50":0.743,"p95":0.932,"r":0.6743,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"hi":1.535,"lo":0.827,"o":1.0,"p50":0.696,"p95":0.96,"r":0.9238,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"hi":1.042,"lo":0.696,"o":1.5,"p50":0.631,"p95":0.701,"r":0.9606,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"hi":1.086,"lo":0.712,"o":2.0,"p50":0.647,"p95":0.752,"r":0.9747,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"hi":0.951,"lo":0.698,"o":3.0,"p50":0.665,"p95":0.845,"r":0.9862,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"hi":1.72,"lo":0.711,"o":4.0,"p50":0.676,"p95":0.78,"r":0.99,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"hi":0.872,"lo":0.714,"o":5.0,"p50":0.676,"p95":0.817,"r":0.9911,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"hi":1.953,"lo":0.772,"o":6.0,"p50":0.741,"p95":1.02,"r":0.9921,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"hi":1.391,"lo":0.728,"o":8.0,"p50":0.747,"p95":0.928,"r":0.9931,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"hi":1.352,"lo":0.897,"o":12.0,"p50":0.777,"p95":0.977,"r":0.9947,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"hi":1.048,"lo":0.896,"o":16.0,"p50":0.825,"p95":0.995,"r":0.9966,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":1.277,"lo":0.834,"o":1.0,"p50":0.757,"p95":1.002,"r":0.9277,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":1.081,"lo":0.836,"o":1.5,"p50":0.755,"p95":0.961,"r":0.9639,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":1.807,"lo":0.835,"o":2.0,"p50":0.753,"p95":0.965,"r":0.9786,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":1.208,"lo":0.853,"o":3.0,"p50":0.781,"p95":1.036,"r":0.9904,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":2.342,"lo":0.854,"o":4.0,"p50":0.819,"p95":0.927,"r":0.994,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":1.161,"lo":0.917,"o":5.0,"p50":0.803,"p95":0.952,"r":0.9957,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":1.138,"lo":0.822,"o":6.0,"p50":0.851,"p95":1.063,"r":0.9967,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":1.471,"lo":0.862,"o":8.0,"p50":0.865,"p95":1.125,"r":0.9975,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":1.167,"lo":0.944,"o":12.0,"p50":0.906,"p95":1.025,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":1.333,"lo":1.026,"o":16.0,"p50":0.928,"p95":1.06,"r":0.9989,"rs":true},{"c":"HNSW, no quantization, ef=pool(1x)","ef":10,"ex":false,"hi":1.08,"lo":0.872,"o":null,"p50":0.816,"p95":0.943,"r":0.8881,"rs":null},{"c":"HNSW, no quantization, ef=pool(1.5x)","ef":15,"ex":false,"hi":1.326,"lo":0.922,"o":null,"p50":0.885,"p95":0.983,"r":0.9266,"rs":null},{"c":"HNSW, no quantization, ef=pool(2x)","ef":20,"ex":false,"hi":2.634,"lo":1.036,"o":null,"p50":0.989,"p95":1.1,"r":0.9526,"rs":null},{"c":"HNSW, no quantization, ef=pool(3x)","ef":30,"ex":false,"hi":1.335,"lo":1.152,"o":null,"p50":1.063,"p95":1.247,"r":0.9725,"rs":null},{"c":"HNSW, no quantization, ef=pool(4x)","ef":40,"ex":false,"hi":1.747,"lo":1.349,"o":null,"p50":1.204,"p95":1.522,"r":0.9811,"rs":null},{"c":"HNSW, no quantization, ef=pool(5x)","ef":50,"ex":false,"hi":1.651,"lo":1.361,"o":null,"p50":1.336,"p95":1.59,"r":0.9873,"rs":null},{"c":"HNSW, no quantization, ef=pool(6x)","ef":60,"ex":false,"hi":5.278,"lo":1.48,"o":null,"p50":1.429,"p95":1.745,"r":0.9891,"rs":null},{"c":"HNSW, no quantization, ef=pool(8x)","ef":80,"ex":false,"hi":7.292,"lo":1.739,"o":null,"p50":1.609,"p95":1.909,"r":0.992,"rs":null},{"c":"HNSW, no quantization, ef=pool(12x)","ef":120,"ex":false,"hi":4.528,"lo":2.106,"o":null,"p50":1.981,"p95":2.34,"r":0.9953,"rs":null},{"c":"HNSW, no quantization, ef=pool(16x)","ef":160,"ex":false,"hi":3.594,"lo":2.477,"o":null,"p50":2.505,"p95":3.257,"r":0.9967,"rs":null},{"c":"BQ + rescore, oversampling 1x, ef=pool","ef":10,"ex":false,"hi":1.034,"lo":0.677,"o":1.0,"p50":0.629,"p95":0.74,"r":0.8339,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=pool","ef":15,"ex":false,"hi":0.757,"lo":0.66,"o":1.5,"p50":0.619,"p95":0.688,"r":0.8981,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=pool","ef":20,"ex":false,"hi":0.727,"lo":0.644,"o":2.0,"p50":0.609,"p95":0.67,"r":0.9321,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=pool","ef":30,"ex":false,"hi":0.783,"lo":0.641,"o":3.0,"p50":0.61,"p95":0.656,"r":0.9613,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=pool","ef":40,"ex":false,"hi":1.247,"lo":0.684,"o":4.0,"p50":0.635,"p95":0.723,"r":0.9755,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=pool","ef":50,"ex":false,"hi":0.807,"lo":0.678,"o":5.0,"p50":0.641,"p95":0.769,"r":0.984,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=pool","ef":60,"ex":false,"hi":0.913,"lo":0.685,"o":6.0,"p50":0.652,"p95":0.745,"r":0.9874,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=pool","ef":80,"ex":false,"hi":0.888,"lo":0.724,"o":8.0,"p50":0.686,"p95":0.805,"r":0.9905,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=pool","ef":120,"ex":false,"hi":1.603,"lo":0.784,"o":12.0,"p50":0.737,"p95":0.868,"r":0.9947,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=pool","ef":160,"ex":false,"hi":1.092,"lo":0.936,"o":16.0,"p50":0.813,"p95":1.001,"r":0.9966,"rs":true}],"20":[{"c":"exact (ground truth)","ef":null,"ex":true,"hi":14.221,"lo":14.221,"o":null,"p50":10.006,"p95":14.221,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"hi":2.351,"lo":2.351,"o":null,"p50":1.932,"p95":2.351,"r":0.994,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"hi":2.295,"lo":2.295,"o":null,"p50":1.914,"p95":2.295,"r":0.994,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"hi":2.667,"lo":2.667,"o":null,"p50":2.221,"p95":2.667,"r":0.9955,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"hi":3.876,"lo":3.876,"o":null,"p50":3.027,"p95":3.876,"r":0.9975,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"hi":5.22,"lo":5.22,"o":null,"p50":4.085,"p95":5.22,"r":0.9986,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"hi":7.367,"lo":7.367,"o":null,"p50":5.601,"p95":7.367,"r":0.9992,"rs":null},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"hi":1.317,"lo":1.317,"o":1.0,"p50":0.832,"p95":1.317,"r":0.682,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"hi":1.122,"lo":1.122,"o":1.5,"p50":0.834,"p95":1.122,"r":0.682,"rs":false},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"hi":0.848,"lo":0.848,"o":2.0,"p50":0.734,"p95":0.848,"r":0.682,"rs":false},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"hi":0.79,"lo":0.79,"o":3.0,"p50":0.72,"p95":0.79,"r":0.682,"rs":false},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"hi":0.798,"lo":0.798,"o":4.0,"p50":0.722,"p95":0.798,"r":0.682,"rs":false},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"hi":0.801,"lo":0.801,"o":5.0,"p50":0.726,"p95":0.801,"r":0.682,"rs":false},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"hi":0.803,"lo":0.803,"o":6.0,"p50":0.729,"p95":0.803,"r":0.6821,"rs":false},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"hi":0.884,"lo":0.884,"o":8.0,"p50":0.766,"p95":0.884,"r":0.683,"rs":false},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"hi":0.975,"lo":0.975,"o":12.0,"p50":0.824,"p95":0.975,"r":0.6831,"rs":false},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"hi":1.156,"lo":1.156,"o":16.0,"p50":0.901,"p95":1.156,"r":0.6833,"rs":false},{"c":"BQ, no rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":1.08,"lo":1.08,"o":1.0,"p50":0.91,"p95":1.08,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":0.895,"lo":0.895,"o":1.5,"p50":0.816,"p95":0.895,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":0.877,"lo":0.877,"o":2.0,"p50":0.805,"p95":0.877,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":0.909,"lo":0.909,"o":3.0,"p50":0.822,"p95":0.909,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":1.23,"lo":1.23,"o":4.0,"p50":0.966,"p95":1.23,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":2.445,"lo":2.445,"o":5.0,"p50":1.498,"p95":2.445,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":2.507,"lo":2.507,"o":6.0,"p50":1.166,"p95":2.507,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":1.17,"lo":1.17,"o":8.0,"p50":0.916,"p95":1.17,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":1.297,"lo":1.297,"o":12.0,"p50":0.966,"p95":1.297,"r":0.6834,"rs":false},{"c":"BQ, no rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":1.061,"lo":1.061,"o":16.0,"p50":0.854,"p95":1.061,"r":0.6833,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"hi":0.835,"lo":0.835,"o":1.0,"p50":0.742,"p95":0.835,"r":0.9354,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"hi":1.07,"lo":1.07,"o":1.5,"p50":0.748,"p95":1.07,"r":0.9685,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"hi":0.908,"lo":0.908,"o":2.0,"p50":0.754,"p95":0.908,"r":0.9804,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"hi":0.819,"lo":0.819,"o":3.0,"p50":0.749,"p95":0.819,"r":0.9876,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"hi":0.89,"lo":0.89,"o":4.0,"p50":0.772,"p95":0.89,"r":0.9907,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"hi":1.003,"lo":1.003,"o":5.0,"p50":0.801,"p95":1.003,"r":0.9919,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"hi":0.956,"lo":0.956,"o":6.0,"p50":0.843,"p95":0.956,"r":0.9935,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"hi":1.219,"lo":1.219,"o":8.0,"p50":0.979,"p95":1.219,"r":0.9958,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"hi":1.312,"lo":1.312,"o":12.0,"p50":1.092,"p95":1.312,"r":0.9981,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"hi":1.324,"lo":1.324,"o":16.0,"p50":1.16,"p95":1.324,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":1.039,"lo":1.039,"o":1.0,"p50":0.85,"p95":1.039,"r":0.9387,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":0.947,"lo":0.947,"o":1.5,"p50":0.858,"p95":0.947,"r":0.972,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":1.174,"lo":1.174,"o":2.0,"p50":0.889,"p95":1.174,"r":0.9846,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":0.996,"lo":0.996,"o":3.0,"p50":0.864,"p95":0.996,"r":0.992,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":1.011,"lo":1.011,"o":4.0,"p50":0.891,"p95":1.011,"r":0.9951,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":0.991,"lo":0.991,"o":5.0,"p50":0.902,"p95":0.991,"r":0.9966,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":1.053,"lo":1.053,"o":6.0,"p50":0.937,"p95":1.053,"r":0.9975,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":1.098,"lo":1.098,"o":8.0,"p50":0.965,"p95":1.098,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":1.256,"lo":1.256,"o":12.0,"p50":1.057,"p95":1.256,"r":0.9986,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":1.526,"lo":1.526,"o":16.0,"p50":1.193,"p95":1.526,"r":0.9988,"rs":true},{"c":"HNSW, no quantization, ef=pool(1x)","ef":20,"ex":false,"hi":1.156,"lo":1.156,"o":null,"p50":1.02,"p95":1.156,"r":0.9415,"rs":null},{"c":"HNSW, no quantization, ef=pool(1.5x)","ef":30,"ex":false,"hi":1.256,"lo":1.256,"o":null,"p50":1.141,"p95":1.256,"r":0.9666,"rs":null},{"c":"HNSW, no quantization, ef=pool(2x)","ef":40,"ex":false,"hi":1.509,"lo":1.509,"o":null,"p50":1.278,"p95":1.509,"r":0.978,"rs":null},{"c":"HNSW, no quantization, ef=pool(3x)","ef":60,"ex":false,"hi":1.668,"lo":1.668,"o":null,"p50":1.474,"p95":1.668,"r":0.9875,"rs":null},{"c":"HNSW, no quantization, ef=pool(4x)","ef":80,"ex":false,"hi":1.859,"lo":1.859,"o":null,"p50":1.668,"p95":1.859,"r":0.992,"rs":null},{"c":"HNSW, no quantization, ef=pool(5x)","ef":100,"ex":false,"hi":2.31,"lo":2.31,"o":null,"p50":1.905,"p95":2.31,"r":0.994,"rs":null},{"c":"HNSW, no quantization, ef=pool(6x)","ef":120,"ex":false,"hi":2.573,"lo":2.573,"o":null,"p50":2.131,"p95":2.573,"r":0.995,"rs":null},{"c":"HNSW, no quantization, ef=pool(8x)","ef":160,"ex":false,"hi":3.238,"lo":3.238,"o":null,"p50":2.614,"p95":3.238,"r":0.9965,"rs":null},{"c":"HNSW, no quantization, ef=pool(12x)","ef":240,"ex":false,"hi":4.326,"lo":4.326,"o":null,"p50":3.454,"p95":4.326,"r":0.9982,"rs":null},{"c":"HNSW, no quantization, ef=pool(16x)","ef":320,"ex":false,"hi":6.082,"lo":6.082,"o":null,"p50":4.436,"p95":6.082,"r":0.9988,"rs":null},{"c":"BQ + rescore, oversampling 1x, ef=pool","ef":20,"ex":false,"hi":0.85,"lo":0.85,"o":1.0,"p50":0.689,"p95":0.85,"r":0.8955,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=pool","ef":30,"ex":false,"hi":0.902,"lo":0.902,"o":1.5,"p50":0.76,"p95":0.902,"r":0.9426,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=pool","ef":40,"ex":false,"hi":0.774,"lo":0.774,"o":2.0,"p50":0.719,"p95":0.774,"r":0.9647,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=pool","ef":60,"ex":false,"hi":0.888,"lo":0.888,"o":3.0,"p50":0.763,"p95":0.888,"r":0.982,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=pool","ef":80,"ex":false,"hi":0.916,"lo":0.916,"o":4.0,"p50":0.814,"p95":0.916,"r":0.9877,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=pool","ef":100,"ex":false,"hi":1.109,"lo":1.109,"o":5.0,"p50":0.888,"p95":1.109,"r":0.9919,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=pool","ef":120,"ex":false,"hi":1.023,"lo":1.023,"o":6.0,"p50":0.885,"p95":1.023,"r":0.9935,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=pool","ef":160,"ex":false,"hi":1.153,"lo":1.153,"o":8.0,"p50":0.946,"p95":1.153,"r":0.9958,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=pool","ef":240,"ex":false,"hi":1.439,"lo":1.439,"o":12.0,"p50":1.124,"p95":1.439,"r":0.9981,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=pool","ef":320,"ex":false,"hi":1.411,"lo":1.411,"o":16.0,"p50":1.222,"p95":1.411,"r":0.9988,"rs":true}],"50":[{"c":"exact (ground truth)","ef":null,"ex":true,"hi":15.878,"lo":15.878,"o":null,"p50":10.658,"p95":15.878,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"hi":3.542,"lo":3.542,"o":null,"p50":2.391,"p95":3.542,"r":0.9919,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"hi":4.882,"lo":4.882,"o":null,"p50":2.656,"p95":4.882,"r":0.9919,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"hi":4.305,"lo":4.305,"o":null,"p50":3.102,"p95":4.305,"r":0.9945,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"hi":5.541,"lo":5.541,"o":null,"p50":3.96,"p95":5.541,"r":0.997,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"hi":7.958,"lo":7.958,"o":null,"p50":4.698,"p95":7.958,"r":0.9984,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"hi":8.086,"lo":8.086,"o":null,"p50":5.818,"p95":8.086,"r":0.9992,"rs":null},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"hi":1.14,"lo":1.14,"o":1.0,"p50":0.936,"p95":1.14,"r":0.683,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"hi":0.955,"lo":0.955,"o":1.5,"p50":0.858,"p95":0.955,"r":0.683,"rs":false},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"hi":1.094,"lo":1.094,"o":2.0,"p50":0.922,"p95":1.094,"r":0.683,"rs":false},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"hi":1.02,"lo":1.02,"o":3.0,"p50":0.897,"p95":1.02,"r":0.6837,"rs":false},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"hi":1.25,"lo":1.25,"o":4.0,"p50":0.986,"p95":1.25,"r":0.6837,"rs":false},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"hi":1.106,"lo":1.106,"o":5.0,"p50":0.995,"p95":1.106,"r":0.6835,"rs":false},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"hi":1.283,"lo":1.283,"o":6.0,"p50":1.03,"p95":1.283,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"hi":1.645,"lo":1.645,"o":8.0,"p50":1.22,"p95":1.645,"r":0.6842,"rs":false},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"hi":1.68,"lo":1.68,"o":12.0,"p50":1.251,"p95":1.68,"r":0.6841,"rs":false},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"hi":2.554,"lo":2.554,"o":16.0,"p50":1.459,"p95":2.554,"r":0.6842,"rs":false},{"c":"BQ, no rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":1.27,"lo":1.27,"o":1.0,"p50":1.031,"p95":1.27,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":1.524,"lo":1.524,"o":1.5,"p50":1.082,"p95":1.524,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":2.038,"lo":2.038,"o":2.0,"p50":1.174,"p95":2.038,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":1.262,"lo":1.262,"o":3.0,"p50":1.04,"p95":1.262,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":1.307,"lo":1.307,"o":4.0,"p50":1.035,"p95":1.307,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":1.263,"lo":1.263,"o":5.0,"p50":1.038,"p95":1.263,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":1.3,"lo":1.3,"o":6.0,"p50":1.054,"p95":1.3,"r":0.684,"rs":false},{"c":"BQ, no rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":1.346,"lo":1.346,"o":8.0,"p50":1.076,"p95":1.346,"r":0.6842,"rs":false},{"c":"BQ, no rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":1.396,"lo":1.396,"o":12.0,"p50":1.147,"p95":1.396,"r":0.6841,"rs":false},{"c":"BQ, no rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":2.01,"lo":2.01,"o":16.0,"p50":1.383,"p95":2.01,"r":0.6842,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"hi":1.185,"lo":1.185,"o":1.0,"p50":0.966,"p95":1.185,"r":0.9419,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"hi":1.16,"lo":1.16,"o":1.5,"p50":1.0,"p95":1.16,"r":0.9705,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"hi":1.192,"lo":1.192,"o":2.0,"p50":1.023,"p95":1.192,"r":0.981,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"hi":1.263,"lo":1.263,"o":3.0,"p50":1.079,"p95":1.263,"r":0.9913,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"hi":1.353,"lo":1.353,"o":4.0,"p50":1.191,"p95":1.353,"r":0.9948,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"hi":1.634,"lo":1.634,"o":5.0,"p50":1.296,"p95":1.634,"r":0.9967,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"hi":2.333,"lo":2.333,"o":6.0,"p50":1.508,"p95":2.333,"r":0.9978,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"hi":2.043,"lo":2.043,"o":8.0,"p50":1.554,"p95":2.043,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"hi":3.498,"lo":3.498,"o":12.0,"p50":2.11,"p95":3.498,"r":0.9994,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"hi":2.661,"lo":2.661,"o":16.0,"p50":2.131,"p95":2.661,"r":0.9996,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":1.175,"lo":1.175,"o":1.0,"p50":1.015,"p95":1.175,"r":0.9453,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":1.143,"lo":1.143,"o":1.5,"p50":1.028,"p95":1.143,"r":0.9744,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":1.784,"lo":1.784,"o":2.0,"p50":1.18,"p95":1.784,"r":0.9857,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":1.667,"lo":1.667,"o":3.0,"p50":1.281,"p95":1.667,"r":0.9939,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":1.643,"lo":1.643,"o":4.0,"p50":1.334,"p95":1.643,"r":0.9961,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":1.598,"lo":1.598,"o":5.0,"p50":1.328,"p95":1.598,"r":0.9973,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":1.549,"lo":1.549,"o":6.0,"p50":1.352,"p95":1.549,"r":0.9978,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":2.328,"lo":2.328,"o":8.0,"p50":1.566,"p95":2.328,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":2.751,"lo":2.751,"o":12.0,"p50":2.009,"p95":2.751,"r":0.9994,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":2.491,"lo":2.491,"o":16.0,"p50":2.107,"p95":2.491,"r":0.9996,"rs":true},{"c":"HNSW, no quantization, ef=pool(1x)","ef":50,"ex":false,"hi":1.956,"lo":1.956,"o":null,"p50":1.62,"p95":1.956,"r":0.9769,"rs":null},{"c":"HNSW, no quantization, ef=pool(1.5x)","ef":75,"ex":false,"hi":2.193,"lo":2.193,"o":null,"p50":1.863,"p95":2.193,"r":0.9875,"rs":null},{"c":"HNSW, no quantization, ef=pool(2x)","ef":100,"ex":false,"hi":2.55,"lo":2.55,"o":null,"p50":2.163,"p95":2.55,"r":0.9919,"rs":null},{"c":"HNSW, no quantization, ef=pool(3x)","ef":150,"ex":false,"hi":3.682,"lo":3.682,"o":null,"p50":2.91,"p95":3.682,"r":0.9956,"rs":null},{"c":"HNSW, no quantization, ef=pool(4x)","ef":200,"ex":false,"hi":4.672,"lo":4.672,"o":null,"p50":3.549,"p95":4.672,"r":0.997,"rs":null},{"c":"HNSW, no quantization, ef=pool(5x)","ef":250,"ex":false,"hi":4.754,"lo":4.754,"o":null,"p50":3.891,"p95":4.754,"r":0.9979,"rs":null},{"c":"HNSW, no quantization, ef=pool(6x)","ef":300,"ex":false,"hi":6.185,"lo":6.185,"o":null,"p50":4.309,"p95":6.185,"r":0.9984,"rs":null},{"c":"HNSW, no quantization, ef=pool(8x)","ef":400,"ex":false,"hi":6.994,"lo":6.994,"o":null,"p50":5.091,"p95":6.994,"r":0.999,"rs":null},{"c":"HNSW, no quantization, ef=pool(12x)","ef":600,"ex":false,"hi":8.606,"lo":8.606,"o":null,"p50":6.259,"p95":8.606,"r":0.9993,"rs":null},{"c":"HNSW, no quantization, ef=pool(16x)","ef":800,"ex":false,"hi":12.416,"lo":12.416,"o":null,"p50":7.275,"p95":12.416,"r":0.9995,"rs":null},{"c":"BQ + rescore, oversampling 1x, ef=pool","ef":50,"ex":false,"hi":1.009,"lo":1.009,"o":1.0,"p50":0.91,"p95":1.009,"r":0.933,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=pool","ef":75,"ex":false,"hi":1.073,"lo":1.073,"o":1.5,"p50":0.972,"p95":1.073,"r":0.9665,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=pool","ef":100,"ex":false,"hi":1.287,"lo":1.287,"o":2.0,"p50":1.075,"p95":1.287,"r":0.981,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=pool","ef":150,"ex":false,"hi":1.274,"lo":1.274,"o":3.0,"p50":1.114,"p95":1.274,"r":0.9913,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=pool","ef":200,"ex":false,"hi":1.485,"lo":1.485,"o":4.0,"p50":1.251,"p95":1.485,"r":0.9948,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=pool","ef":250,"ex":false,"hi":1.672,"lo":1.672,"o":5.0,"p50":1.375,"p95":1.672,"r":0.9967,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=pool","ef":300,"ex":false,"hi":1.842,"lo":1.842,"o":6.0,"p50":1.459,"p95":1.842,"r":0.9978,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=pool","ef":400,"ex":false,"hi":2.259,"lo":2.259,"o":8.0,"p50":1.738,"p95":2.259,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=pool","ef":600,"ex":false,"hi":2.252,"lo":2.252,"o":12.0,"p50":1.921,"p95":2.252,"r":0.9994,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=pool","ef":800,"ex":false,"hi":2.859,"lo":2.859,"o":16.0,"p50":2.29,"p95":2.859,"r":0.9996,"rs":true}],"100":[{"c":"exact (ground truth)","ef":null,"ex":true,"hi":19.615,"lo":12.383,"o":null,"p50":10.887,"p95":18.418,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"hi":4.509,"lo":3.576,"o":null,"p50":2.421,"p95":3.61,"r":0.9877,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"hi":5.654,"lo":2.58,"o":null,"p50":2.464,"p95":2.972,"r":0.9877,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"hi":7.191,"lo":3.151,"o":null,"p50":2.761,"p95":3.453,"r":0.992,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"hi":5.524,"lo":4.551,"o":null,"p50":3.657,"p95":4.654,"r":0.996,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"hi":6.286,"lo":5.323,"o":null,"p50":4.532,"p95":5.782,"r":0.9979,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"hi":9.649,"lo":6.692,"o":null,"p50":5.842,"p95":8.302,"r":0.999,"rs":null},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"hi":1.898,"lo":1.314,"o":1.0,"p50":1.197,"p95":1.681,"r":0.6873,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"hi":1.443,"lo":1.122,"o":1.5,"p50":1.093,"p95":1.245,"r":0.6875,"rs":false},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"hi":1.503,"lo":1.163,"o":2.0,"p50":1.114,"p95":1.294,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"hi":2.433,"lo":1.26,"o":3.0,"p50":1.327,"p95":1.696,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"hi":3.128,"lo":1.359,"o":4.0,"p50":1.298,"p95":1.646,"r":0.6878,"rs":false},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"hi":1.88,"lo":1.393,"o":5.0,"p50":1.382,"p95":1.672,"r":0.6877,"rs":false},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"hi":2.053,"lo":1.611,"o":6.0,"p50":1.416,"p95":1.698,"r":0.6875,"rs":false},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"hi":1.905,"lo":1.651,"o":8.0,"p50":1.501,"p95":1.711,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"hi":3.714,"lo":1.969,"o":12.0,"p50":1.725,"p95":2.132,"r":0.6877,"rs":false},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"hi":3.935,"lo":2.267,"o":16.0,"p50":1.924,"p95":2.448,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":2.414,"lo":1.359,"o":1.0,"p50":1.241,"p95":1.389,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":4.351,"lo":1.313,"o":1.5,"p50":1.298,"p95":1.759,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":4.726,"lo":1.311,"o":2.0,"p50":1.278,"p95":1.642,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":2.648,"lo":1.336,"o":3.0,"p50":1.305,"p95":1.764,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":3.21,"lo":1.33,"o":4.0,"p50":1.284,"p95":1.699,"r":0.6878,"rs":false},{"c":"BQ, no rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":2.849,"lo":1.483,"o":5.0,"p50":1.459,"p95":1.89,"r":0.6877,"rs":false},{"c":"BQ, no rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":2.552,"lo":1.531,"o":6.0,"p50":1.518,"p95":2.093,"r":0.6875,"rs":false},{"c":"BQ, no rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":2.245,"lo":1.718,"o":8.0,"p50":1.533,"p95":2.043,"r":0.6876,"rs":false},{"c":"BQ, no rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":3.073,"lo":1.954,"o":12.0,"p50":1.871,"p95":2.487,"r":0.6877,"rs":false},{"c":"BQ, no rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":4.091,"lo":2.531,"o":16.0,"p50":2.085,"p95":3.161,"r":0.6876,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"hi":3.187,"lo":1.644,"o":1.0,"p50":1.311,"p95":1.757,"r":0.9496,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"hi":3.843,"lo":1.639,"o":1.5,"p50":1.398,"p95":1.723,"r":0.977,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"hi":3.936,"lo":1.593,"o":2.0,"p50":1.445,"p95":1.814,"r":0.9871,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"hi":2.546,"lo":1.785,"o":3.0,"p50":1.708,"p95":2.38,"r":0.9946,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"hi":2.443,"lo":1.948,"o":4.0,"p50":1.779,"p95":2.118,"r":0.9972,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"hi":2.678,"lo":2.205,"o":5.0,"p50":1.956,"p95":2.329,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"hi":4.23,"lo":2.29,"o":6.0,"p50":2.102,"p95":2.812,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"hi":7.144,"lo":2.532,"o":8.0,"p50":2.434,"p95":3.0,"r":0.9992,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"hi":5.759,"lo":3.447,"o":12.0,"p50":2.988,"p95":3.768,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"hi":5.257,"lo":3.854,"o":16.0,"p50":3.46,"p95":4.225,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"hi":2.171,"lo":1.589,"o":1.0,"p50":1.4,"p95":1.841,"r":0.9532,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"hi":1.779,"lo":1.476,"o":1.5,"p50":1.377,"p95":1.623,"r":0.9793,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"hi":1.945,"lo":1.558,"o":2.0,"p50":1.441,"p95":1.782,"r":0.9883,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"hi":2.866,"lo":1.662,"o":3.0,"p50":1.575,"p95":1.808,"r":0.9946,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"hi":2.07,"lo":1.807,"o":4.0,"p50":1.677,"p95":1.868,"r":0.9972,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"hi":2.316,"lo":1.985,"o":5.0,"p50":1.874,"p95":2.185,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"hi":3.306,"lo":2.489,"o":6.0,"p50":2.063,"p95":2.553,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"hi":6.715,"lo":3.082,"o":8.0,"p50":2.558,"p95":3.654,"r":0.9992,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"hi":4.231,"lo":3.452,"o":12.0,"p50":2.982,"p95":3.627,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"hi":6.689,"lo":4.172,"o":16.0,"p50":3.639,"p95":4.955,"r":0.9997,"rs":true},{"c":"HNSW, no quantization, ef=pool(1x)","ef":100,"ex":false,"hi":3.462,"lo":3.001,"o":null,"p50":2.478,"p95":3.427,"r":0.9877,"rs":null},{"c":"HNSW, no quantization, ef=pool(1.5x)","ef":150,"ex":false,"hi":6.266,"lo":3.462,"o":null,"p50":3.175,"p95":4.321,"r":0.9938,"rs":null},{"c":"HNSW, no quantization, ef=pool(2x)","ef":200,"ex":false,"hi":6.806,"lo":4.552,"o":null,"p50":3.721,"p95":4.71,"r":0.996,"rs":null},{"c":"HNSW, no quantization, ef=pool(3x)","ef":300,"ex":false,"hi":7.496,"lo":5.909,"o":null,"p50":4.689,"p95":6.672,"r":0.9979,"rs":null},{"c":"HNSW, no quantization, ef=pool(4x)","ef":400,"ex":false,"hi":13.501,"lo":6.186,"o":null,"p50":5.707,"p95":10.754,"r":0.9987,"rs":null},{"c":"HNSW, no quantization, ef=pool(5x)","ef":500,"ex":false,"hi":9.568,"lo":7.239,"o":null,"p50":5.847,"p95":7.897,"r":0.999,"rs":null},{"c":"HNSW, no quantization, ef=pool(6x)","ef":600,"ex":false,"hi":19.244,"lo":8.722,"o":null,"p50":6.527,"p95":9.885,"r":0.9992,"rs":null},{"c":"HNSW, no quantization, ef=pool(8x)","ef":800,"ex":false,"hi":14.867,"lo":9.234,"o":null,"p50":7.32,"p95":9.778,"r":0.9994,"rs":null},{"c":"HNSW, no quantization, ef=pool(12x)","ef":1200,"ex":false,"hi":17.728,"lo":10.479,"o":null,"p50":8.978,"p95":12.516,"r":0.9995,"rs":null},{"c":"HNSW, no quantization, ef=pool(16x)","ef":1600,"ex":false,"hi":18.031,"lo":12.233,"o":null,"p50":10.166,"p95":13.97,"r":0.9997,"rs":null},{"c":"BQ + rescore, oversampling 1x, ef=pool","ef":100,"ex":false,"hi":3.605,"lo":1.926,"o":1.0,"p50":1.342,"p95":2.04,"r":0.9496,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=pool","ef":150,"ex":false,"hi":3.507,"lo":1.49,"o":1.5,"p50":1.288,"p95":1.59,"r":0.977,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=pool","ef":200,"ex":false,"hi":1.966,"lo":1.437,"o":2.0,"p50":1.392,"p95":1.645,"r":0.9871,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=pool","ef":300,"ex":false,"hi":2.261,"lo":1.68,"o":3.0,"p50":1.612,"p95":1.854,"r":0.9946,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=pool","ef":400,"ex":false,"hi":2.205,"lo":1.831,"o":4.0,"p50":1.781,"p95":2.043,"r":0.9972,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=pool","ef":500,"ex":false,"hi":3.717,"lo":2.366,"o":5.0,"p50":2.074,"p95":3.28,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=pool","ef":600,"ex":false,"hi":3.541,"lo":2.344,"o":6.0,"p50":2.168,"p95":2.696,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=pool","ef":800,"ex":false,"hi":4.33,"lo":2.87,"o":8.0,"p50":2.431,"p95":3.099,"r":0.9992,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=pool","ef":1200,"ex":false,"hi":7.814,"lo":3.034,"o":12.0,"p50":3.023,"p95":4.131,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=pool","ef":1600,"ex":false,"hi":7.661,"lo":3.59,"o":16.0,"p50":3.53,"p95":4.065,"r":0.9997,"rs":true}]};
+const OS = [1, 1.5, 2, 3, 4, 5, 6, 8, 12, 16];
+const EF = 300;
+const SERIES = [
+  {k: 10,  color: "var(--k10)"},
+  {k: 100, color: "var(--k100)"},
+];
+const NS = "http://www.w3.org/2000/svg";
+const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+const fmtO = o => (o % 1 ? o.toFixed(1) : o) + "\u00d7";
+const sweep = k => OS.map(o => DATA[k].find(d => d.rs === true && d.o === o && d.ef === EF));
+const noquant = k => DATA[k].find(d => d.c === "HNSW, no quantization, ef=" + EF);
+const offRow = k => DATA[k].find(d => d.rs === false && d.o === 3 && d.ef === EF);
+
+const tip = document.getElementById("tip");
+function showTip(evt, html) {
+  tip.innerHTML = html; tip.style.opacity = 1;
+  const r = tip.getBoundingClientRect();
+  let x = evt.clientX + 14, y = evt.clientY - r.height - 12;
+  if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
+  if (y < 8) y = evt.clientY + 18;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const hideTip = () => { tip.style.opacity = 0; };
+addEventListener("scroll", hideTip, {passive: true});
+
+function text(svg, x, y, s, fill, anchor, weight, cls) {
+  const t = el("text", {x, y, class: cls || "plabel", fill, "text-anchor": anchor || "middle"});
+  if (weight) t.setAttribute("font-weight", weight);
+  t.textContent = s; svg.appendChild(t);
+}
+function hit(svg, cx, cy, html) {
+  const h = el("circle", {cx, cy, r: 15, class: "hit"});
+  h.addEventListener("mousemove", e => showTip(e, html));
+  h.addEventListener("mouseleave", hideTip);
+  svg.appendChild(h);
+}
+
+function specBox(svg, M, iw, ih) {
+  const rows = [
+    ["ENGINE",  "Qdrant 1.19.0"],
+    ["CORPUS",  "100,000 vectors, 1536d cosine"],
+    ["QUERIES", "1,000 held out"],
+    ["CONFIG",  "Binary quantization, in RAM, hnsw_ef 300"],
+  ];
+  const padX = 14, padY = 13, lh = 22, w = 316;
+  const h = padY * 2 + lh * rows.length - 4;
+  const x = M.l + iw - w - 12, y = M.t + ih - h - 12;
+  svg.appendChild(el("rect", {x, y, width: w, height: h, rx: 4,
+    fill: "var(--surface)", stroke: "var(--rule)", "stroke-width": 1, opacity: 0.97}));
+  rows.forEach(([k, v], i) => {
+    const ty = y + padY + lh * i + 8;
+    text(svg, x + padX, ty, k, "var(--muted)", "start", null, "spec-k");
+    text(svg, x + padX, ty + 12, v, "var(--ink-2)", "start", null, "spec-v");
+  });
+}
+
+function draw() {
+  const svg = document.getElementById("chart");
+  const all = SERIES.flatMap(s => [...sweep(s.k), noquant(s.k)]).filter(Boolean);
+  const lat = all.flatMap(d => [d.lo, d.hi]), rec = all.map(d => d.r);
+  const x0 = Math.min(...lat) * 0.88, x1 = Math.max(...lat) * 1.10;
+  const y0 = Math.min(...rec) - 0.006, y1 = 1.002;
+  const W = 960, H = 560, M = {t: 24, r: 74, b: 56, l: 68};
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", "100%"); svg.setAttribute("height", H);
+  const iw = W - M.l - M.r, ih = H - M.t - M.b;
+  const lg = Math.log10;
+  const X = v => M.l + (lg(v) - lg(x0)) / (lg(x1) - lg(x0)) * iw;
+  const Y = v => M.t + (1 - (v - y0) / (y1 - y0)) * ih;
+
+  const ystep = (y1 - y0) > 0.09 ? 0.01 : 0.005;
+  for (let v = Math.ceil(y0 / ystep) * ystep; v <= y1 + 1e-9; v += ystep) {
+    svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v), class: "grid"}));
+    text(svg, M.l - 12, Y(v) + 4, v.toFixed(ystep < 0.01 ? 3 : 2), "var(--muted)", "end", null, "tick");
+  }
+  [0.8, 1, 1.5, 2, 3, 4, 5, 6, 8, 10].filter(v => v >= x0 && v <= x1).forEach(v => {
+    svg.appendChild(el("line", {x1: X(v), x2: X(v), y1: M.t, y2: M.t + ih, class: "grid"}));
+    text(svg, X(v), M.t + ih + 22, String(v), "var(--muted)", "middle", null, "tick");
+  });
+  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, class: "axis"}));
+  svg.appendChild(el("line", {x1: M.l, x2: M.l, y1: M.t, y2: M.t + ih, class: "axis"}));
+  text(svg, M.l + iw / 2, H - 12, "P95 LATENCY (MS), LOG SCALE \u2014 LOWER IS BETTER", "var(--muted)", "middle", null, "axis-title");
+  const yt = el("text", {x: -(M.t + ih / 2), y: 17, class: "axis-title", "text-anchor": "middle", transform: "rotate(-90)"});
+  yt.textContent = "RECALL@K"; svg.appendChild(yt);
+
+  specBox(svg, M, iw, ih);
+
+  SERIES.forEach(s => {
+    const pts = sweep(s.k), nq = noquant(s.k);
+    // range across passes, drawn first so the marks sit on top
+    pts.forEach(d => svg.appendChild(el("line", {x1: X(d.lo), x2: X(d.hi), y1: Y(d.r), y2: Y(d.r),
+      stroke: s.color, "stroke-width": 5, opacity: 0.16, "stroke-linecap": "round"})));
+    svg.appendChild(el("polyline", {points: pts.map(d => `${X(d.lo)},${Y(d.r)}`).join(" "),
+      fill: "none", stroke: s.color, "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-linecap": "round"}));
+    pts.forEach((d, i) => {
+      svg.appendChild(el("circle", {cx: X(d.lo), cy: Y(d.r), r: 5.5, fill: s.color,
+        stroke: "var(--surface)", "stroke-width": 2}));
+      hit(svg, X(d.lo), Y(d.r),
+        `<b>k=${s.k} \u00b7 ${fmtO(OS[i])} oversampling</b><br>recall ${d.r.toFixed(4)}<br>fastest pass p95 ${d.lo.toFixed(2)} ms<br>slowest ${d.hi.toFixed(2)} ms \u00b7 median ${d.p95.toFixed(2)} ms`);
+    });
+    [0, OS.length - 1].forEach(i => {
+      const d = pts[i], last = i === OS.length - 1;
+      text(svg, X(d.p95) + (last ? 12 : 0), Y(d.r) + (last ? 4 : (i === 0 ? 20 : -14)),
+           last ? `k=${s.k} \u00b7 ${fmtO(OS[i])}` : fmtO(OS[i]), s.color, last ? "start" : "middle", last ? 600 : null);
+    });
+    // uncompressed reference at the same ef
+    const rx = X(nq.lo), ry = Y(nq.r);
+    svg.appendChild(el("line", {x1: X(nq.lo), x2: X(nq.hi), y1: ry, y2: ry,
+      stroke: s.color, "stroke-width": 5, opacity: 0.16, "stroke-linecap": "round"}));
+    svg.appendChild(el("rect", {x: rx - 6, y: ry - 6, width: 12, height: 12,
+      fill: "var(--surface)", stroke: s.color, "stroke-width": 2.5}));
+    hit(svg, rx, ry, `<b>k=${s.k} \u00b7 no quantization, ef=${EF}</b><br>recall ${nq.r.toFixed(4)}<br>fastest pass p95 ${nq.lo.toFixed(2)} ms<br>slowest ${nq.hi.toFixed(2)} ms \u00b7 median ${nq.p95.toFixed(2)} ms`);
+    text(svg, rx, ry + 22, "no quant.", s.color);
+  });
+
+  // where the quantized curve overtakes the uncompressed reference on both axes
+  const verdicts = SERIES.map(s => {
+    const nq = noquant(s.k);
+    const win = sweep(s.k).find(d => d.r >= nq.r && d.lo <= nq.lo);
+    return {k: s.k, nq, win, o: win ? OS[sweep(s.k).indexOf(win)] : null};
+  });
+  const v10 = verdicts[0], v100 = verdicts[1];
+  const line = v => v.win
+    ? `at k=${v.k}, <b>${fmtO(v.o)} oversampling</b> reaches ${v.win.r.toFixed(4)} in
+       <b>${v.win.lo.toFixed(2)} ms</b> against ${v.nq.r.toFixed(4)} at ${v.nq.lo.toFixed(2)} ms uncompressed`
+    : `at k=${v.k} no oversampling setting tested matches uncompressed on both axes
+       (closest: ${sweep(v.k)[OS.length - 1].r.toFixed(4)} at ${sweep(v.k)[OS.length - 1].lo.toFixed(2)} ms
+       against ${v.nq.r.toFixed(4)} at ${v.nq.lo.toFixed(2)} ms)`;
+  document.getElementById("verdict").innerHTML =
+    `Everything here runs at <code>hnsw_ef 300</code>, so the quantized and uncompressed searches walk
+     the same graph and only compression differs. Reading the crossings: ${line(v10)}; ${line(v100)}.
+     Rescore off is not plotted &mdash; it sits at
+     <b>${offRow(10).r.toFixed(4)}</b> and <b>${offRow(100).r.toFixed(4)}</b>, far below this axis, and
+     no amount of oversampling recovers it. Measured on 100,000 dbpedia entities embedded with OpenAI
+     text-embedding-ada-002, 1536d cosine. Each point is the <b>fastest</b> of five interleaved passes of 1,000
+     queries, because contention on a shared machine only ever adds time; the faint bar behind each
+     point spans the slowest pass, so you can see how much of the spacing is measurement noise.`;
+
+  svg.setAttribute("aria-label",
+    `Recall against p95 latency for binary quantization with rescoring, swept over oversampling 1x to 16x, ` +
+    `at k=10 and k=100, with an uncompressed HNSW reference at the same hnsw_ef of 300 for each limit.`);
+}
+
+draw();
+</script>
