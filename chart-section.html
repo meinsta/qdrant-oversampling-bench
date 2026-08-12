@@ -117,20 +117,21 @@
   </p>
 
   <figure>
-    <div class="chart-eyebrow" id="c-eyebrow">Recall@k vs p95 latency, oversampling 1&times; &rarr; 16&times;</div>
-    <div class="chart-title">How much latency you pay for each point of recall that oversampling adds.</div>
+    <div class="chart-eyebrow" id="c-eyebrow">Recall@k vs p95 latency &middot; rescore off &rarr; on &rarr; oversampling 1&times; to 16&times;</div>
+    <div class="chart-title">How much latency you pay for each point of recall that rescoring gives back.</div>
     <div class="legend">
       <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--k10)"/></svg>k=10</span>
       <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--k100)"/></svg>k=100</span>
       <span><svg width="34" height="13" aria-hidden="true"><path d="M0 6.5h32" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 4"/><rect x="11" y="1.5" width="10" height="10" fill="var(--surface)" stroke="var(--muted)" stroke-width="2"/></svg>HNSW, no quantization, ef sweep</span>
       <span><svg width="15" height="13" aria-hidden="true"><rect x="2" y="2" width="10" height="10" fill="var(--muted)" stroke="var(--muted)" stroke-width="2"/></svg>ef = 300</span>
+      <span><svg width="15" height="13" aria-hidden="true"><path d="M3 3l9 9M12 3l-9 9" stroke="var(--muted)" stroke-width="2.2" stroke-linecap="round"/></svg>rescore off</span>
     </div>
     <div class="plot"><svg id="chart" role="img"></svg></div>
     <figcaption id="verdict"></figcaption>
     <div class="tablewrap"><table id="values"></table></div>
   </figure>
 
-  <p class="more"><a href="https://github.com/meinsta/qdrant-oversampling-bench">Learn how rescoring works &rarr;</a></p>
+  <p class="more"><a href="https://qdrant.tech/documentation/manage-data/quantization/#searching-with-quantization">Learn how rescoring works &rarr;</a> &nbsp;&middot;&nbsp; <a href="https://github.com/meinsta/qdrant-oversampling-bench">method and raw results &rarr;</a></p>
 </div>
 
 <div class="tip" id="tip"></div>
@@ -156,7 +157,7 @@ const hnsw = k => {
   return [...by.values()].filter(d => d.ef >= 100).sort((a, b) => a.ef - b.ef);
 };
 const noquant = k => hnsw(k).find(d => d.ef === EF);
-const offRow = k => DATA[k].find(d => d.rs === false && d.o === 3 && d.ef === EF);
+const offRow = k => DATA[k].find(d => d.rs === false && d.o === 1 && d.ef === EF);
 
 const tip = document.getElementById("tip");
 function showTip(evt, html) {
@@ -187,7 +188,7 @@ function specBox(svg, M, iw, ih) {
     ["ENGINE",  "Qdrant 1.19.0"],
     ["CORPUS",  "100,000 vectors, 1536d cosine"],
     ["QUERIES", "1,000 held out"],
-    ["CONFIG",  "Binary quantization, in RAM, hnsw_ef 300"],
+    ["CONFIG",  "Binary quantization, in RAM \u00b7 ef 300 on the solid curves"],
   ];
   const padX = 14, padY = 13, lh = 22, w = 316;
   const h = padY * 2 + lh * rows.length - 4;
@@ -203,7 +204,7 @@ function specBox(svg, M, iw, ih) {
 
 function draw() {
   const svg = document.getElementById("chart");
-  const all = SERIES.flatMap(s => [...sweep(s.k), ...hnsw(s.k)]).filter(Boolean);
+  const all = SERIES.flatMap(s => [...sweep(s.k), ...hnsw(s.k), offRow(s.k)]).filter(Boolean);
   const lat = all.flatMap(d => [d.lo, d.hi]), rec = all.map(d => d.r);
   const x0 = Math.min(...lat) * 0.88, x1 = Math.max(...lat) * 1.10;
   const y0 = Math.min(...rec) - 0.006, y1 = 1.002;
@@ -215,7 +216,7 @@ function draw() {
   const X = v => M.l + (lg(v) - lg(x0)) / (lg(x1) - lg(x0)) * iw;
   const Y = v => M.t + (1 - (v - y0) / (y1 - y0)) * ih;
 
-  const ystep = (y1 - y0) > 0.09 ? 0.01 : 0.005;
+  const ystep = (y1 - y0) > 0.2 ? 0.05 : (y1 - y0) > 0.09 ? 0.01 : 0.005;
   for (let v = Math.ceil(y0 / ystep) * ystep; v <= y1 + 1e-9; v += ystep) {
     svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v), class: "grid"}));
     text(svg, M.l - 12, Y(v) + 4, v.toFixed(ystep < 0.01 ? 3 : 2), "var(--muted)", "end", null, "tick");
@@ -234,6 +235,21 @@ function draw() {
 
   SERIES.forEach(s => {
     const pts = sweep(s.k), nq = noquant(s.k);
+    // rescore off: the floor every point on this curve is measured against
+    const off = offRow(s.k), first = pts[0];
+    svg.appendChild(el("path", {d: `M${X(off.lo)} ${Y(off.r)}L${X(first.lo)} ${Y(first.r)}`,
+      stroke: s.color, "stroke-width": 1.5, "stroke-dasharray": "2 3", opacity: 0.75}));
+    const ox = X(off.lo), oy = Y(off.r);
+    svg.appendChild(el("path", {d: `M${ox - 6} ${oy - 6}L${ox + 6} ${oy + 6}M${ox + 6} ${oy - 6}L${ox - 6} ${oy + 6}`,
+      stroke: s.color, "stroke-width": 2.5, "stroke-linecap": "round"}));
+    hit(svg, ox, oy, `<b>k=${s.k} \u00b7 rescore off</b><br>recall ${off.r.toFixed(4)}<br>fastest pass p95 ${off.lo.toFixed(2)} ms`);
+    text(svg, ox, oy + 20, "rescore off", s.color, "middle", 600);
+    const gx = (ox + X(first.lo)) / 2 + 14, gy = (oy + Y(first.r)) / 2;
+    const dms = first.lo - off.lo;
+    text(svg, gx, gy, `+${(first.r - off.r).toFixed(3)} recall`, s.color, "start", 600);
+    text(svg, gx, gy + 13, dms <= 0.02 ? "at no measurable cost" : `for +${dms.toFixed(2)} ms`,
+         "var(--muted)", "start");
+
     // range across passes, drawn first so the marks sit on top
     pts.forEach(d => svg.appendChild(el("line", {x1: X(d.lo), x2: X(d.hi), y1: Y(d.r), y2: Y(d.r),
       stroke: s.color, "stroke-width": 5, opacity: 0.16, "stroke-linecap": "round"})));
@@ -266,14 +282,7 @@ function draw() {
         text(svg, rx, ry + (d.ef === hs[0].ef ? 19 : -13), "ef " + d.ef, s.color, "middle");
     });
     // the k=10 pool never exceeds ef 300, so its walk is identical at every point
-    if (s.k === 10) {
-      const c = pts[4], ax = X(1.55), ay = Y(0.9665);
-      svg.appendChild(el("path", {d: `M${ax - 6} ${ay - 4}L${X(c.lo) + 7} ${Y(c.r) + 8}`,
-        stroke: s.color, "stroke-width": 1, opacity: 0.5}));
-      text(svg, ax, ay, "k=10 is vertical because the walk never changes:", s.color, "start", 600);
-      text(svg, ax, ay + 14, "pools of 10 to 160 all fit inside ef 300, so only the", "var(--muted)", "start");
-      text(svg, ax, ay + 27, "rescore set grows. The horizontal scatter is noise.", "var(--muted)", "start");
-    }
+
 
   });
 
@@ -289,22 +298,25 @@ function draw() {
     ? `at k=${v.k}, <b>${v.q.lo.toFixed(2)} ms</b> quantized against <b>${v.h.lo.toFixed(2)} ms</b>
        uncompressed (ef ${v.h.ef})`
     : `at k=${v.k} one side never reaches ${v.t}`;
+  const o10 = offRow(10), o100 = offRow(100), f10 = sweep(10)[0], f100 = sweep(100)[0];
+  const t10 = sweep(10)[OS.length - 1], t100 = sweep(100)[OS.length - 1];
   document.getElementById("verdict").innerHTML =
-    `Two ways to buy recall, each swept over its own knob: the solid curves raise
-     <code>oversampling</code> from 1&times; to 16&times; at a fixed <code>hnsw_ef</code> of 300, the dashed
-     curves raise <code>hnsw_ef</code> on an uncompressed index. The filled square is
-     <code>ef 300</code>, the like-for-like point where both walk the same graph.
-     To reach <b>0.998</b> recall: ${phrase(rows[0])}; ${phrase(rows[1])}.
-     ${rows.map(v => v.qAtNq
-        ? `At k=${v.k}, ${fmtO(v.o)} oversampling matches the ef-300 index on recall
-           (${v.qAtNq.r.toFixed(4)} against ${v.nq.r.toFixed(4)}) in ${v.qAtNq.lo.toFixed(2)} ms
-           against ${v.nq.lo.toFixed(2)} ms.`
-        : `At k=${v.k} no oversampling setting matches the ef-300 index on both axes.`).join(" ")}
-     Rescore off is not plotted &mdash; it sits at <b>${offRow(10).r.toFixed(4)}</b> and
-     <b>${offRow(100).r.toFixed(4)}</b>, far below this axis, and no amount of oversampling recovers it.
+    `Each curve starts at the cross, where rescoring is off. Nothing above that line exists without
+     it: with rescoring off, sweeping oversampling 1&times; to 16&times; moves recall by less than
+     0.002, so every point of recall on these curves is rescoring's. <b>Switching it on is where
+     almost all of it arrives, and it is close to free</b> &mdash; ${o10.r.toFixed(4)} to
+     ${f10.r.toFixed(4)} ${(f10.lo - o10.lo) <= 0.02 ? "at no measurable cost" : "for +" + (f10.lo - o10.lo).toFixed(2) + " ms"} at k=10,
+     and ${o100.r.toFixed(4)} to ${f100.r.toFixed(4)} for +${(f100.lo - o100.lo).toFixed(2)} ms at k=100.
+     Oversampling then buys the remainder and this is where you start paying: another
+     ${(t10.r - f10.r).toFixed(3)} recall for +${(t10.lo - f10.lo).toFixed(2)} ms at k=10, and
+     ${(t100.r - f100.r).toFixed(3)} for +${(t100.lo - f100.lo).toFixed(2)} ms at k=100, which is
+     steeper because pools above 300 widen the graph walk as well as the rescore set.
+     The dashed curves are an uncompressed index tuned over <code>hnsw_ef</code> instead, for scale:
+     reaching 0.998 costs ${sweep(10).find(d => d.r >= 0.998).lo.toFixed(2)} ms quantized against
+     ${hnsw(10).find(d => d.r >= 0.998).lo.toFixed(2)} ms uncompressed at k=10.
      Measured on 100,000 dbpedia entities embedded with OpenAI text-embedding-ada-002, 1536d cosine.
-     Each point is the <b>fastest</b> of five interleaved passes of 1,000 queries, because contention on
-     a shared machine only ever adds time; the faint bar behind each point spans the slowest pass.`;
+     Each point is the <b>fastest</b> of five interleaved passes of 1,000 queries, because contention
+     on a shared machine only ever adds time; the faint bar behind each point spans the slowest pass.`;
 
   // every plotted value in text, since the figure has to read without hover.
   // transposed: oversampling down the rows, so it fits without sideways scrolling.
@@ -320,7 +332,7 @@ function draw() {
   html += "</tbody>";
   const h10 = new Map(hnsw(10).map(d => [d.ef, d])), h100 = new Map(hnsw(100).map(d => [d.ef, d]));
   const efs = [...new Set([...h10.keys(), ...h100.keys()])].sort((a2, b2) => a2 - b2);
-  html += `<thead><tr><th>No quantization</th><th>k=10 recall</th><th>k=10 p95</th>
+  html += `<thead><tr><th>No quantization, by hnsw_ef</th><th>k=10 recall</th><th>k=10 p95</th>
       <th>k=100 recall</th><th>k=100 p95</th></tr></thead><tbody>`;
   efs.forEach(ef => {
     const a2 = h10.get(ef), b2 = h100.get(ef);
