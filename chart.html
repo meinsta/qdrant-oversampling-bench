@@ -84,6 +84,8 @@
   .tick { font-size: 11px; fill: var(--muted); }
   .axis-title { font-size: 11px; fill: var(--muted); letter-spacing: .1em; }
   .plabel { font-size: 10.5px; fill: var(--ink-2); }
+  .spec-k { font-size: 9.5px; letter-spacing: .11em; fill: var(--muted); }
+  .spec-v { font-size: 10.5px; fill: var(--ink-2); }
   .grid { stroke: var(--rule-soft); stroke-width: 1; }
   .axis { stroke: var(--rule); stroke-width: 1; }
   .hit { fill: transparent; cursor: crosshair; }
@@ -186,6 +188,32 @@ function text(svg, x, y, s, fill, anchor, weight) {
   t.textContent = s; svg.appendChild(t);
 }
 
+/* provenance box, pinned inside the plot's empty bottom-right corner, so the chart
+   stays self-describing when it is screenshotted away from this page */
+function specBox(svg, M, iw, ih) {
+  const rows = [
+    ["ENGINE",  "Qdrant 1.19.0, single node"],
+    ["CORPUS",  "100,000 \u00d7 1536d OpenAI ada-002, cosine"],
+    ["QUERIES", "1,000 held out, exact-KNN ground truth"],
+    ["CONFIG",  "BQ always_ram \u00b7 m=16 \u00b7 ef_construct=100"],
+    ["READING", "limit 10 \u00b7 p95 median of 3\u00d71,000 queries"],
+  ];
+  const padX = 13, padY = 12, lh = 16, labelW = 62;
+  const w = 362, h = padY * 2 + lh * rows.length;
+  const x = M.l + iw - w - 10, y = M.t + ih - h - 10;
+  const g = el("g", {});
+  g.appendChild(el("rect", {x, y, width: w, height: h, rx: 3,
+    fill: "var(--surface)", stroke: "var(--rule)", "stroke-width": 1, opacity: 0.97}));
+  rows.forEach(([k, v], i) => {
+    const ty = y + padY + lh * i + 11;
+    const a = el("text", {x: x + padX, y: ty, class: "spec-k"});
+    a.textContent = k; g.appendChild(a);
+    const b = el("text", {x: x + padX + labelW, y: ty, class: "spec-v"});
+    b.textContent = v; g.appendChild(b);
+  });
+  svg.appendChild(g);
+}
+
 function draw() {
   const svg = document.getElementById("chart");
   const W = 960, H = 540, M = {t: 26, r: 34, b: 54, l: 64};
@@ -268,6 +296,8 @@ function draw() {
     fill: "none", stroke: "var(--muted)", "stroke-width": 1, "stroke-dasharray": "4 3"}));
   text(svg, (xa + xb) / 2, y - 7,
        `same recall, ${(rival.p95 / target.p95).toFixed(1)}\u00d7 faster`, "var(--ink-2)", "middle", 600);
+
+  specBox(svg, M, iw, H - M.t - M.b);
 
   const t99 = bq.find(d => d.r >= 0.99), f99 = fl.find(d => d.r >= 0.99);
   document.getElementById("verdict").innerHTML =
