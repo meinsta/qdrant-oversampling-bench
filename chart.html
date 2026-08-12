@@ -113,8 +113,9 @@
   <p class="sub">
     Binary quantization is <em>less</em> accurate than uncompressed search per candidate examined. It wins
     anyway, because 1-bit distances are cheap enough to examine far more candidates inside the same
-    latency budget. Both curves below walk identical candidate pools, so the only difference left is how
-    each distance gets computed.
+    latency budget. Rescoring is what converts those extra candidates back into accuracy, and
+    oversampling is what decides how many of them there are. Both curves below walk identical pools, so
+    the only difference left is how each distance gets computed.
   </p>
 
   <div class="tiles" id="tiles"></div>
@@ -278,16 +279,23 @@ function draw() {
      <b>${t99.p95.toFixed(2)} ms</b> quantized and <b>${f99.p95.toFixed(2)} ms</b> not. Across limits
      10 to 100 and targets 0.99 to 0.999, that speedup runs 2.0\u00d7 to 2.8\u00d7.`;
 
+  const offRow = rows.find(d => d.rs === false && d.o === 1 && d.ef === null);
+  const onRow  = rows.find(d => d.rs === true  && d.o === 1 && d.ef === null);
   document.getElementById("tiles").innerHTML = `
-    <div class="tile"><span class="k">At 0.99 recall</span>
-      <span class="v" style="color:var(--bq)">${(f99.p95 / t99.p95).toFixed(1)}&times;</span>
-      <span class="n">${t99.p95.toFixed(2)} ms quantized against ${f99.p95.toFixed(2)} ms uncompressed.</span></div>
-    <div class="tile"><span class="k">At ${target.r.toFixed(4)} recall</span>
+    <div class="tile"><span class="k">Rescoring recovers</span>
+      <span class="v" style="color:var(--bq)">+${(onRow.r - offRow.r).toFixed(3)}</span>
+      <span class="n">Recall, at 1&times; oversampling and default ef: ${offRow.r.toFixed(4)} without rescoring
+        to ${onRow.r.toFixed(4)} with it, at no measurable cost in time
+        (${offRow.p95.toFixed(2)} to ${onRow.p95.toFixed(2)} ms). Rescore-off sits below the bottom of
+        this chart.</span></div>
+    <div class="tile"><span class="k">Oversampling then adds</span>
+      <span class="v" style="color:var(--bq)">+${(bq[9].r - bq[0].r).toFixed(3)}</span>
+      <span class="n">Recall from a pool of ${poolOf(OS[0])} to ${poolOf(OS[9])} candidates,
+        ${bq[0].r.toFixed(4)} to ${bq[9].r.toFixed(4)}, for ${(bq[9].p95 - bq[0].p95).toFixed(2)} ms.</span></div>
+    <div class="tile"><span class="k">Against uncompressed</span>
       <span class="v" style="color:var(--bq)">${(rival.p95 / target.p95).toFixed(1)}&times;</span>
-      <span class="n">${target.p95.toFixed(2)} ms against ${rival.p95.toFixed(2)} ms, both walking 160 candidates.</span></div>
-    <div class="tile"><span class="k">Accuracy per candidate</span>
-      <span class="v" style="color:var(--fl)">uncompressed</span>
-      <span class="n">Ahead at every matched pool, by 0.054 at pool 10 narrowing to 0.0001 at 160.</span></div>`;
+      <span class="n">Faster at ${target.r.toFixed(4)} recall. Uncompressed is more accurate per
+        candidate at every matched pool &mdash; it just costs more to get there.</span></div>`;
 
   svg.setAttribute("aria-label",
     `Recall against p95 latency at limit 10, with binary quantization and uncompressed search walking matched candidate pools. ` +
