@@ -116,7 +116,8 @@
     <div class="legend">
       <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--k10)"/></svg>k=10</span>
       <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5.5" fill="var(--k100)"/></svg>k=100</span>
-      <span><svg width="15" height="13" aria-hidden="true"><rect x="2" y="2" width="10" height="10" fill="none" stroke="var(--muted)" stroke-width="2"/></svg>HNSW, no quantization</span>
+      <span><svg width="34" height="13" aria-hidden="true"><path d="M0 6.5h32" stroke="var(--muted)" stroke-width="2" stroke-dasharray="6 4"/><rect x="11" y="1.5" width="10" height="10" fill="var(--surface)" stroke="var(--muted)" stroke-width="2"/></svg>HNSW, no quantization, ef sweep</span>
+      <span><svg width="15" height="13" aria-hidden="true"><rect x="2" y="2" width="10" height="10" fill="var(--muted)" stroke="var(--muted)" stroke-width="2"/></svg>ef = 300</span>
     </div>
     <div class="plot"><svg id="chart" role="img"></svg></div>
     <figcaption id="verdict"></figcaption>
@@ -139,7 +140,15 @@ const NS = "http://www.w3.org/2000/svg";
 const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
 const fmtO = o => (o % 1 ? o.toFixed(1) : o) + "\u00d7";
 const sweep = k => OS.map(o => DATA[k].find(d => d.rs === true && d.o === o && d.ef === EF));
-const noquant = k => DATA[k].find(d => d.c === "HNSW, no quantization, ef=" + EF);
+// the whole uncompressed frontier: some ef values were measured twice (the standalone
+// sweep and the pool-matched runs coincide), so keep the fastest observation of each
+const hnsw = k => {
+  const by = new Map();
+  DATA[k].filter(d => d.ex === false && d.o === null && d.rs === null && d.ef !== null)
+    .forEach(d => { const p = by.get(d.ef); if (!p || d.lo < p.lo) by.set(d.ef, d); });
+  return [...by.values()].filter(d => d.ef >= 100).sort((a, b) => a.ef - b.ef);
+};
+const noquant = k => hnsw(k).find(d => d.ef === EF);
 const offRow = k => DATA[k].find(d => d.rs === false && d.o === 3 && d.ef === EF);
 
 const tip = document.getElementById("tip");
@@ -187,7 +196,7 @@ function specBox(svg, M, iw, ih) {
 
 function draw() {
   const svg = document.getElementById("chart");
-  const all = SERIES.flatMap(s => [...sweep(s.k), noquant(s.k)]).filter(Boolean);
+  const all = SERIES.flatMap(s => [...sweep(s.k), ...hnsw(s.k)]).filter(Boolean);
   const lat = all.flatMap(d => [d.lo, d.hi]), rec = all.map(d => d.r);
   const x0 = Math.min(...lat) * 0.88, x1 = Math.max(...lat) * 1.10;
   const y0 = Math.min(...rec) - 0.006, y1 = 1.002;
@@ -229,43 +238,58 @@ function draw() {
       hit(svg, X(d.lo), Y(d.r),
         `<b>k=${s.k} \u00b7 ${fmtO(OS[i])} oversampling</b><br>recall ${d.r.toFixed(4)}<br>fastest pass p95 ${d.lo.toFixed(2)} ms<br>slowest ${d.hi.toFixed(2)} ms \u00b7 median ${d.p95.toFixed(2)} ms`);
     });
-    [0, OS.length - 1].forEach(i => {
+    [0].forEach(i => {
       const d = pts[i], last = i === OS.length - 1;
-      text(svg, X(d.p95) + (last ? 12 : 0), Y(d.r) + (last ? 4 : (i === 0 ? 20 : -14)),
-           last ? `k=${s.k} \u00b7 ${fmtO(OS[i])}` : fmtO(OS[i]), s.color, last ? "start" : "middle", last ? 600 : null);
+      const dx = last && s.k === 10 ? 12 : 0;
+      const dy = last ? (s.k === 10 ? -11 : 18) : 20;
+      text(svg, X(d.lo) + dx, Y(d.r) + dy, last ? `k=${s.k} \u00b7 ${fmtO(OS[i])}` : fmtO(OS[i]),
+           s.color, last && s.k === 10 ? "start" : "middle", last ? 600 : null);
     });
-    // uncompressed reference at the same ef
-    const rx = X(nq.lo), ry = Y(nq.r);
-    svg.appendChild(el("line", {x1: X(nq.lo), x2: X(nq.hi), y1: ry, y2: ry,
-      stroke: s.color, "stroke-width": 5, opacity: 0.16, "stroke-linecap": "round"}));
-    svg.appendChild(el("rect", {x: rx - 6, y: ry - 6, width: 12, height: 12,
-      fill: "var(--surface)", stroke: s.color, "stroke-width": 2.5}));
-    hit(svg, rx, ry, `<b>k=${s.k} \u00b7 no quantization, ef=${EF}</b><br>recall ${nq.r.toFixed(4)}<br>fastest pass p95 ${nq.lo.toFixed(2)} ms<br>slowest ${nq.hi.toFixed(2)} ms \u00b7 median ${nq.p95.toFixed(2)} ms`);
-    text(svg, rx, ry + 22, "no quant.", s.color);
+    // uncompressed frontier, swept over ef
+    const hs = hnsw(s.k);
+    hs.forEach(d => svg.appendChild(el("line", {x1: X(d.lo), x2: X(d.hi), y1: Y(d.r), y2: Y(d.r),
+      stroke: s.color, "stroke-width": 5, opacity: 0.10, "stroke-linecap": "round"})));
+    svg.appendChild(el("polyline", {points: hs.map(d => `${X(d.lo)},${Y(d.r)}`).join(" "),
+      fill: "none", stroke: s.color, "stroke-width": 2, "stroke-dasharray": "6 4",
+      "stroke-linejoin": "round", opacity: 0.9}));
+    hs.forEach(d => {
+      const rx = X(d.lo), ry = Y(d.r), key = d.ef === EF;
+      svg.appendChild(el("rect", {x: rx - (key ? 6.5 : 5), y: ry - (key ? 6.5 : 5),
+        width: key ? 13 : 10, height: key ? 13 : 10,
+        fill: key ? s.color : "var(--surface)", stroke: s.color, "stroke-width": key ? 2.5 : 2}));
+      hit(svg, rx, ry, `<b>k=${s.k} \u00b7 no quantization, ef=${d.ef}</b><br>recall ${d.r.toFixed(4)}<br>fastest pass p95 ${d.lo.toFixed(2)} ms<br>slowest ${d.hi.toFixed(2)} ms`);
+    });
+
   });
 
-  // where the quantized curve overtakes the uncompressed reference on both axes
-  const verdicts = SERIES.map(s => {
-    const nq = noquant(s.k);
-    const win = sweep(s.k).find(d => d.r >= nq.r && d.lo <= nq.lo);
-    return {k: s.k, nq, win, o: win ? OS[sweep(s.k).indexOf(win)] : null};
+  // equal-recall read across the two frontiers
+  const at = (arr, t) => arr.find(d => d.r >= t);
+  const rows = SERIES.map(s2 => {
+    const t = 0.998;
+    const q = at(sweep(s2.k), t), h = at(hnsw(s2.k), t), nq2 = noquant(s2.k);
+    const qAtNq = sweep(s2.k).find(d => d.r >= nq2.r && d.lo <= nq2.lo);
+    return {k: s2.k, t, q, h, nq: nq2, qAtNq, o: qAtNq ? OS[sweep(s2.k).indexOf(qAtNq)] : null};
   });
-  const v10 = verdicts[0], v100 = verdicts[1];
-  const line = v => v.win
-    ? `at k=${v.k}, <b>${fmtO(v.o)} oversampling</b> reaches ${v.win.r.toFixed(4)} in
-       <b>${v.win.lo.toFixed(2)} ms</b> against ${v.nq.r.toFixed(4)} at ${v.nq.lo.toFixed(2)} ms uncompressed`
-    : `at k=${v.k} no oversampling setting tested matches uncompressed on both axes
-       (closest: ${sweep(v.k)[OS.length - 1].r.toFixed(4)} at ${sweep(v.k)[OS.length - 1].lo.toFixed(2)} ms
-       against ${v.nq.r.toFixed(4)} at ${v.nq.lo.toFixed(2)} ms)`;
+  const phrase = v => v.q && v.h
+    ? `at k=${v.k}, <b>${v.q.lo.toFixed(2)} ms</b> quantized against <b>${v.h.lo.toFixed(2)} ms</b>
+       uncompressed (ef ${v.h.ef})`
+    : `at k=${v.k} one side never reaches ${v.t}`;
   document.getElementById("verdict").innerHTML =
-    `Everything here runs at <code>hnsw_ef 300</code>, so the quantized and uncompressed searches walk
-     the same graph and only compression differs. Reading the crossings: ${line(v10)}; ${line(v100)}.
-     Rescore off is not plotted &mdash; it sits at
-     <b>${offRow(10).r.toFixed(4)}</b> and <b>${offRow(100).r.toFixed(4)}</b>, far below this axis, and
-     no amount of oversampling recovers it. Measured on 100,000 dbpedia entities embedded with OpenAI
-     text-embedding-ada-002, 1536d cosine. Each point is the <b>fastest</b> of five interleaved passes of 1,000
-     queries, because contention on a shared machine only ever adds time; the faint bar behind each
-     point spans the slowest pass, so you can see how much of the spacing is measurement noise.`;
+    `Two ways to buy recall, each swept over its own knob: the solid curves raise
+     <code>oversampling</code> from 1&times; to 16&times; at a fixed <code>hnsw_ef</code> of 300, the dashed
+     curves raise <code>hnsw_ef</code> on an uncompressed index. The filled square is
+     <code>ef 300</code>, the like-for-like point where both walk the same graph.
+     To reach <b>0.998</b> recall: ${phrase(rows[0])}; ${phrase(rows[1])}.
+     ${rows.map(v => v.qAtNq
+        ? `At k=${v.k}, ${fmtO(v.o)} oversampling matches the ef-300 index on recall
+           (${v.qAtNq.r.toFixed(4)} against ${v.nq.r.toFixed(4)}) in ${v.qAtNq.lo.toFixed(2)} ms
+           against ${v.nq.lo.toFixed(2)} ms.`
+        : `At k=${v.k} no oversampling setting matches the ef-300 index on both axes.`).join(" ")}
+     Rescore off is not plotted &mdash; it sits at <b>${offRow(10).r.toFixed(4)}</b> and
+     <b>${offRow(100).r.toFixed(4)}</b>, far below this axis, and no amount of oversampling recovers it.
+     Measured on 100,000 dbpedia entities embedded with OpenAI text-embedding-ada-002, 1536d cosine.
+     Each point is the <b>fastest</b> of five interleaved passes of 1,000 queries, because contention on
+     a shared machine only ever adds time; the faint bar behind each point spans the slowest pass.`;
 
   svg.setAttribute("aria-label",
     `Recall against p95 latency for binary quantization with rescoring, swept over oversampling 1x to 16x, ` +
