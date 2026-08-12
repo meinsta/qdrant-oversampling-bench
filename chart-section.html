@@ -189,8 +189,9 @@ function specBox(svg, M, iw, ih) {
     ["CORPUS",  "100,000 vectors, 1536d cosine"],
     ["QUERIES", "1,000 held out"],
     ["CONFIG",  "Binary quantization, in RAM \u00b7 ef 300 on the solid curves"],
+    ["READING", "p95, fastest of 5 passes \u00b7 bars span the slowest"],
   ];
-  const padX = 14, padY = 13, lh = 22, w = 316;
+  const padX = 14, padY = 13, lh = 22, w = 330;
   const h = padY * 2 + lh * rows.length - 4;
   const x = M.l + iw - w - 12, y = M.t + ih - h - 12;
   svg.appendChild(el("rect", {x, y, width: w, height: h, rx: 4,
@@ -298,26 +299,16 @@ function draw() {
     ? `at k=${v.k}, <b>${v.q.lo.toFixed(2)} ms</b> quantized against <b>${v.h.lo.toFixed(2)} ms</b>
        uncompressed (ef ${v.h.ef})`
     : `at k=${v.k} one side never reaches ${v.t}`;
-  const o10 = offRow(10), o100 = offRow(100), f10 = sweep(10)[0], f100 = sweep(100)[0];
-  const t10 = sweep(10)[OS.length - 1], t100 = sweep(100)[OS.length - 1];
+  const base = hnsw(100).find(d => d.ef === EF);
+  const rec3 = sweep(100)[OS.indexOf(3)];
+  const off1 = offRow(100), off16 = DATA[100].find(d => d.rs === false && d.o === 16 && d.ef === EF);
   document.getElementById("verdict").innerHTML =
-    `Each curve starts at a cross: binary quantization with <code>rescore</code> off, ranking on the
-     compressed vectors alone and never reading the originals. Nothing above that point exists without
-     rescoring &mdash; with it off, sweeping oversampling 1&times; to 16&times; moves recall by less
-     than 0.002, because a wider candidate pool is useless if nothing re-ranks it. <b>Switching it on is where
-     almost all of it arrives, and it is close to free</b> &mdash; ${o10.r.toFixed(4)} to
-     ${f10.r.toFixed(4)} ${(f10.lo - o10.lo) <= 0.02 ? "at no measurable cost" : "for +" + (f10.lo - o10.lo).toFixed(2) + " ms"} at k=10,
-     and ${o100.r.toFixed(4)} to ${f100.r.toFixed(4)} for +${(f100.lo - o100.lo).toFixed(2)} ms at k=100.
-     Oversampling then buys the remainder and this is where you start paying: another
-     ${(t10.r - f10.r).toFixed(3)} recall for +${(t10.lo - f10.lo).toFixed(2)} ms at k=10, and
-     ${(t100.r - f100.r).toFixed(3)} for +${(t100.lo - f100.lo).toFixed(2)} ms at k=100, which is
-     steeper because pools above 300 widen the graph walk as well as the rescore set.
-     The dashed curves are an uncompressed index tuned over <code>hnsw_ef</code> instead, for scale:
-     reaching 0.998 costs ${sweep(10).find(d => d.r >= 0.998).lo.toFixed(2)} ms quantized against
-     ${hnsw(10).find(d => d.r >= 0.998).lo.toFixed(2)} ms uncompressed at k=10.
-     Measured on 100,000 dbpedia entities embedded with OpenAI text-embedding-ada-002, 1536d cosine.
-     Each point is the <b>fastest</b> of five interleaved passes of 1,000 queries, because contention
-     on a shared machine only ever adds time; the faint bar behind each point spans the slowest pass.`;
+    `At k=100, the documented <b>3&times; with rescore</b> reaches ${rec3.r.toFixed(4)} recall in
+     ${rec3.lo.toFixed(2)} ms &mdash; <b>${(base.lo / rec3.lo).toFixed(1)}&times; faster</b> than
+     un-quantized HNSW at the same <code>ef</code>, which needs ${base.lo.toFixed(2)} ms for
+     ${base.r.toFixed(4)}. Rescore off: ${off1.r.toFixed(4)}, unrecoverable &mdash;
+     ${fmtO(16)} the candidates moves it by ${(off16.r - off1.r).toFixed(4)}. Measured on 100,000
+     dbpedia entities embedded with OpenAI text-embedding-ada-002, 1536d cosine.`;
 
   // every plotted value in text, since the figure has to read without hover.
   // transposed: oversampling down the rows, so it fits without sideways scrolling.
