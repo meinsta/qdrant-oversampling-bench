@@ -270,8 +270,12 @@ function draw() {
   document.getElementById("verdict").innerHTML =
     `At limit ${limit}, rescoring alone lifts recall by <b>${(on1.r - off1.r).toFixed(3)}</b> at 1&times;
      oversampling, before any extra candidates are fetched. Oversampling then carries it from
-     <b>${on1.r.toFixed(4)}</b> to <b>${lastOn.r.toFixed(4)}</b> at 16&times;, crossing the unquantized
-     baseline at 12&times;. Without rescoring, the same sweep moves recall by <b>${offGain.toFixed(4)}</b>
+     <b>${on1.r.toFixed(4)}</b> to <b>${lastOn.r.toFixed(4)}</b> at 16&times;, drawing level with the
+     uncompressed baseline. Read that convergence carefully rather than as an overtake: past 10&times; the
+     pool of ${limit} &times; oversampling exceeds the default <code>hnsw_ef</code> of 100, so the quantized
+     search is walking a wider graph than the green rule did. Compared at matched width, uncompressed
+     stays a hair ahead (0.9953 against 0.9947 at 120 candidates) and the two meet at 160.
+     Without rescoring, the same sweep moves recall by <b>${offGain.toFixed(4)}</b>
      &mdash; the flat orange line. Oversampling widens the pool; rescoring is what reads the original
      vectors. The green rule is a rule and not a curve because oversampling is a quantization search
      parameter: it does not apply to an unquantized search. The same gap holds at the other limits
