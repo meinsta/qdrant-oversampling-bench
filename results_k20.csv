@@ -1,0 +1,29 @@
+config,limit,oversampling,rescore,hnsw_ef,exact,recall,p50_ms,p95_ms,p99_ms,mean_ms
+exact (ground truth),20,,,,True,1.0,8.333,8.561,10.223,8.39
+"HNSW, no quantization",20,,,,False,0.994,1.722,1.991,2.822,1.749
+"HNSW, no quantization, ef=100",20,,,100,False,0.994,1.769,2.151,3.572,1.831
+"HNSW, no quantization, ef=128",20,,,128,False,0.9955,1.996,2.411,2.686,2.008
+"HNSW, no quantization, ef=200",20,,,200,False,0.9975,2.463,2.929,3.349,2.497
+"HNSW, no quantization, ef=300",20,,,300,False,0.9986,3.021,3.566,3.808,3.025
+"HNSW, no quantization, ef=512",20,,,512,False,0.9992,4.179,5.195,7.495,4.245
+"BQ, no rescore",20,1.0,False,,False,0.682,0.649,0.709,0.82,0.657
+"BQ + rescore, oversampling 1x",20,1.0,True,,False,0.9354,0.66,0.722,0.785,0.665
+"BQ + rescore, oversampling 1.5x",20,1.5,True,,False,0.9685,0.663,0.708,0.774,0.667
+"BQ + rescore, oversampling 2x",20,2.0,True,,False,0.9804,0.672,0.734,0.813,0.678
+"BQ + rescore, oversampling 3x",20,3.0,True,,False,0.9876,0.688,0.748,0.795,0.693
+"BQ + rescore, oversampling 4x",20,4.0,True,,False,0.9907,0.703,0.772,0.832,0.709
+"BQ + rescore, oversampling 5x",20,5.0,True,,False,0.9919,0.718,0.787,1.736,0.741
+"BQ + rescore, oversampling 6x",20,6.0,True,,False,0.9935,0.747,0.818,0.902,0.753
+"BQ + rescore, oversampling 8x",20,8.0,True,,False,0.9958,0.823,1.095,1.499,0.868
+"BQ + rescore, oversampling 12x",20,12.0,True,,False,0.9981,1.197,2.362,4.473,1.35
+"BQ + rescore, oversampling 16x",20,16.0,True,,False,0.9988,1.085,1.346,2.637,1.137
+"BQ + rescore, oversampling 1x, ef=300",20,1.0,True,300,False,0.9387,0.811,1.006,1.437,0.845
+"BQ + rescore, oversampling 1.5x, ef=300",20,1.5,True,300,False,0.972,0.774,0.912,1.042,0.791
+"BQ + rescore, oversampling 2x, ef=300",20,2.0,True,300,False,0.9846,0.782,0.895,1.006,0.795
+"BQ + rescore, oversampling 3x, ef=300",20,3.0,True,300,False,0.992,0.792,0.89,1.005,0.802
+"BQ + rescore, oversampling 4x, ef=300",20,4.0,True,300,False,0.9951,0.817,1.056,1.19,0.844
+"BQ + rescore, oversampling 5x, ef=300",20,5.0,True,300,False,0.9966,0.832,0.988,1.191,0.849
+"BQ + rescore, oversampling 6x, ef=300",20,6.0,True,300,False,0.9975,0.846,0.975,1.097,0.859
+"BQ + rescore, oversampling 8x, ef=300",20,8.0,True,300,False,0.9982,0.887,1.022,1.165,0.902
+"BQ + rescore, oversampling 12x, ef=300",20,12.0,True,300,False,0.9986,0.977,1.157,1.272,0.994
+"BQ + rescore, oversampling 16x, ef=300",20,16.0,True,300,False,0.9988,1.064,1.219,1.345,1.076

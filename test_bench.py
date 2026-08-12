@@ -25,18 +25,28 @@ def test_csv_quotes_commas():
 
 
 def test_published_results_match_json():
-    for k in (10, 100):
+    for k in (10, 20, 50, 100):
         rows = list(csv.DictReader(open(f"results_k{k}.csv")))
         ref = json.load(open(f"results_k{k}.json"))
-        assert len(rows) == len(ref) == 13
+        assert len(rows) == len(ref) == len(bench.CONFIGS)
         for a, b in zip(rows, ref):
             assert a["config"] == b["config"]
             assert float(a["recall"]) == b["recall"]
             assert float(a["p95_ms"]) == b["p95_ms"]
+            assert int(a["limit"]) == b["limit"] == k
+
+
+def test_ground_truth_is_first():
+    """Recall is scored against row 0, so the exact run must lead every file."""
+    assert bench.CONFIGS[0][1]["exact"] is True
+    for k in (10, 20, 50, 100):
+        first = json.load(open(f"results_k{k}.json"))[0]
+        assert first["exact"] is True and first["recall"] == 1.0
 
 
 if __name__ == "__main__":
     test_recall()
     test_csv_quotes_commas()
     test_published_results_match_json()
+    test_ground_truth_is_first()
     print("ok")

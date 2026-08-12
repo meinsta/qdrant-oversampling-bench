@@ -79,15 +79,26 @@ def ingest():
         time.sleep(10)
 
 
-CONFIGS = [
-    ("exact (ground truth)", dict(exact=True, quantization=models.QuantizationSearchParams(ignore=True))),
-    ("HNSW, no quantization", dict(quantization=models.QuantizationSearchParams(ignore=True))),
-    ("BQ, no rescore", dict(quantization=models.QuantizationSearchParams(rescore=False, oversampling=1.0))),
-] + [
-    (f"BQ + rescore, oversampling {o}x",
-     dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o))))
-    for o in (1, 1.5, 2, 3, 4, 5, 6, 8, 12, 16)
-]
+NO_QUANT = models.QuantizationSearchParams(ignore=True)
+OVERSAMPLING = (1, 1.5, 2, 3, 4, 5, 6, 8, 12, 16)
+EF_SWEEP = (100, 128, 200, 300, 512)  # 100 == ef_construct, to identify the unset default
+
+# Oversampling raises the candidate count the index has to walk, so a BQ run at 16x
+# is not comparable to an unquantized run at the engine's default ef. Both sides get
+# an ef sweep, and ef=300 is repeated across the whole oversampling range so one
+# comparison holds ef fixed.
+CONFIGS = (
+    [("exact (ground truth)", dict(exact=True, quantization=NO_QUANT))]
+    + [("HNSW, no quantization", dict(quantization=NO_QUANT))]
+    + [(f"HNSW, no quantization, ef={ef}", dict(quantization=NO_QUANT, hnsw_ef=ef)) for ef in EF_SWEEP]
+    + [("BQ, no rescore", dict(quantization=models.QuantizationSearchParams(rescore=False, oversampling=1.0)))]
+    + [(f"BQ + rescore, oversampling {o}x",
+        dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o))))
+       for o in OVERSAMPLING]
+    + [(f"BQ + rescore, oversampling {o}x, ef=300",
+        dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o)), hnsw_ef=300))
+       for o in OVERSAMPLING]
+)
 
 
 def run(queries, params):
@@ -109,7 +120,7 @@ def recall_at_k(ids, truth, k):
 def bench():
     queries = np.load("queries.npy")
     print("warmup", flush=True)
-    run(queries[:50], CONFIGS[1][1])
+    run(queries[:200], CONFIGS[1][1])
 
     rows = []
     truth = None
@@ -121,12 +132,17 @@ def bench():
         else:
             recall = recall_at_k(ids, truth, K)
         lat.sort()
-        row = dict(config=label, recall=round(recall, 4),
+        q = params.get("quantization")
+        row = dict(config=label, limit=K,
+                   oversampling=q.oversampling if q else None,
+                   rescore=q.rescore if q else None,
+                   hnsw_ef=params.get("hnsw_ef"),
+                   exact=bool(params.get("exact")),
+                   recall=round(recall, 4),
                    p50_ms=round(statistics.median(lat), 3),
                    p95_ms=round(lat[int(0.95 * len(lat))], 3),
                    p99_ms=round(lat[int(0.99 * len(lat))], 3),
-                   mean_ms=round(statistics.fmean(lat), 3),
-                   oversampling=params.get("quantization").oversampling if params.get("quantization") else None)
+                   mean_ms=round(statistics.fmean(lat), 3))
         rows.append(row)
         print(json.dumps(row), flush=True)
 
@@ -134,7 +150,8 @@ def bench():
     write_csv(rows, f"results_k{K}.csv")
 
 
-FIELDS = ["config", "oversampling", "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms"]
+FIELDS = ["config", "limit", "oversampling", "rescore", "hnsw_ef", "exact",
+          "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms"]
 
 
 def write_csv(rows, path):
