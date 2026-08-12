@@ -81,6 +81,9 @@ def ingest():
 
 
 NO_QUANT = models.QuantizationSearchParams(ignore=True)
+# The candidate pool oversampling asks for: "if oversampling is 2.4 and limit is 100,
+# then 240 vectors will be pre-selected" (qdrant.tech/documentation/manage-data/quantization).
+pool = lambda o: max(K, round(K * o))
 OVERSAMPLING = (1, 1.5, 2, 3, 4, 5, 6, 8, 12, 16)
 EF_SWEEP = (100, 128, 200, 300, 512)  # 100 == ef_construct, to identify the unset default
 
@@ -101,6 +104,16 @@ CONFIGS = (
        for o in OVERSAMPLING]
     + [(f"BQ + rescore, oversampling {o}x, ef=300",
         dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o)), hnsw_ef=300))
+       for o in OVERSAMPLING]
+    # The paired control. Oversampling pre-selects limit*oversampling candidates, so the
+    # matched unquantized run is one that walks the same size pool: ef = limit*oversampling.
+    # Then the only difference left is 1-bit vs float distance computation.
+    + [(f"HNSW, no quantization, ef=pool({o}x)",
+        dict(quantization=NO_QUANT, hnsw_ef=pool(o)))
+       for o in OVERSAMPLING]
+    # Same pool, pinned on the quantized side too, so ef cannot silently bind instead.
+    + [(f"BQ + rescore, oversampling {o}x, ef=pool",
+        dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o)), hnsw_ef=pool(o)))
        for o in OVERSAMPLING]
 )
 
