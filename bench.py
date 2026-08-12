@@ -99,6 +99,11 @@ CONFIGS = (
     + [(f"BQ, no rescore, oversampling {o}x",
         dict(quantization=models.QuantizationSearchParams(rescore=False, oversampling=float(o))))
        for o in OVERSAMPLING]
+    # and the same with ef pinned, so no-quant / quant-without-rescore / quant-with-rescore
+    # can be compared at one shared ef
+    + [(f"BQ, no rescore, oversampling {o}x, ef=300",
+        dict(quantization=models.QuantizationSearchParams(rescore=False, oversampling=float(o)), hnsw_ef=300))
+       for o in OVERSAMPLING]
     + [(f"BQ + rescore, oversampling {o}x",
         dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o))))
        for o in OVERSAMPLING]
