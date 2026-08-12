@@ -93,6 +93,12 @@
   }
   .tip b { font-weight: 600; }
 
+  .tablewrap { margin-top: 22px; overflow-x: auto; border-top: 1px solid var(--rule); }
+  table thead:not(:first-child) th { padding-top: 18px; }
+  table { border-collapse: collapse; width: 100%; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+  th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--rule-soft); }
+  th { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; color: var(--muted); }
   .more { margin-top: 26px; font-size: 15px; }
   a { color: var(--k10); text-underline-offset: 3px; }
   a:focus-visible { outline: 2px solid var(--k10); outline-offset: 2px; }
@@ -121,6 +127,7 @@
     </div>
     <div class="plot"><svg id="chart" role="img"></svg></div>
     <figcaption id="verdict"></figcaption>
+    <div class="tablewrap"><table id="values"></table></div>
   </figure>
 
   <p class="more"><a href="https://github.com/meinsta/qdrant-oversampling-bench">Learn how rescoring works &rarr;</a></p>
@@ -238,12 +245,9 @@ function draw() {
       hit(svg, X(d.lo), Y(d.r),
         `<b>k=${s.k} \u00b7 ${fmtO(OS[i])} oversampling</b><br>recall ${d.r.toFixed(4)}<br>fastest pass p95 ${d.lo.toFixed(2)} ms<br>slowest ${d.hi.toFixed(2)} ms \u00b7 median ${d.p95.toFixed(2)} ms`);
     });
-    [0].forEach(i => {
+    [0, OS.length - 1].forEach(i => {
       const d = pts[i], last = i === OS.length - 1;
-      const dx = last && s.k === 10 ? 12 : 0;
-      const dy = last ? (s.k === 10 ? -11 : 18) : 20;
-      text(svg, X(d.lo) + dx, Y(d.r) + dy, last ? `k=${s.k} \u00b7 ${fmtO(OS[i])}` : fmtO(OS[i]),
-           s.color, last && s.k === 10 ? "start" : "middle", last ? 600 : null);
+      text(svg, X(d.lo), Y(d.r) + (i === 0 ? 20 : -13), fmtO(OS[i]), s.color, "middle", 600);
     });
     // uncompressed frontier, swept over ef
     const hs = hnsw(s.k);
@@ -258,7 +262,18 @@ function draw() {
         width: key ? 13 : 10, height: key ? 13 : 10,
         fill: key ? s.color : "var(--surface)", stroke: s.color, "stroke-width": key ? 2.5 : 2}));
       hit(svg, rx, ry, `<b>k=${s.k} \u00b7 no quantization, ef=${d.ef}</b><br>recall ${d.r.toFixed(4)}<br>fastest pass p95 ${d.lo.toFixed(2)} ms<br>slowest ${d.hi.toFixed(2)} ms`);
+      if (d.ef === hs[0].ef || d.ef === hs[hs.length - 1].ef)
+        text(svg, rx, ry + (d.ef === hs[0].ef ? 19 : -13), "ef " + d.ef, s.color, "middle");
     });
+    // the k=10 pool never exceeds ef 300, so its walk is identical at every point
+    if (s.k === 10) {
+      const c = pts[4], ax = X(1.55), ay = Y(0.9665);
+      svg.appendChild(el("path", {d: `M${ax - 6} ${ay - 4}L${X(c.lo) + 7} ${Y(c.r) + 8}`,
+        stroke: s.color, "stroke-width": 1, opacity: 0.5}));
+      text(svg, ax, ay, "k=10 is vertical because the walk never changes:", s.color, "start", 600);
+      text(svg, ax, ay + 14, "pools of 10 to 160 all fit inside ef 300, so only the", "var(--muted)", "start");
+      text(svg, ax, ay + 27, "rescore set grows. The horizontal scatter is noise.", "var(--muted)", "start");
+    }
 
   });
 
@@ -290,6 +305,31 @@ function draw() {
      Measured on 100,000 dbpedia entities embedded with OpenAI text-embedding-ada-002, 1536d cosine.
      Each point is the <b>fastest</b> of five interleaved passes of 1,000 queries, because contention on
      a shared machine only ever adds time; the faint bar behind each point spans the slowest pass.`;
+
+  // every plotted value in text, since the figure has to read without hover.
+  // transposed: oversampling down the rows, so it fits without sideways scrolling.
+  const cell = v => v === undefined ? "<td></td>" : `<td>${v}</td>`;
+  let html = `<thead><tr><th>Quantized + rescore, ef 300</th>
+      <th>k=10 recall</th><th>k=10 p95</th><th>k=100 recall</th><th>k=100 p95</th></tr></thead><tbody>`;
+  const q10 = sweep(10), q100 = sweep(100);
+  OS.forEach((o, i) => {
+    html += `<tr><td>${fmtO(o)} oversampling</td>` +
+      cell(q10[i].r.toFixed(4)) + cell(q10[i].lo.toFixed(2)) +
+      cell(q100[i].r.toFixed(4)) + cell(q100[i].lo.toFixed(2)) + "</tr>";
+  });
+  html += "</tbody>";
+  const h10 = new Map(hnsw(10).map(d => [d.ef, d])), h100 = new Map(hnsw(100).map(d => [d.ef, d]));
+  const efs = [...new Set([...h10.keys(), ...h100.keys()])].sort((a2, b2) => a2 - b2);
+  html += `<thead><tr><th>No quantization</th><th>k=10 recall</th><th>k=10 p95</th>
+      <th>k=100 recall</th><th>k=100 p95</th></tr></thead><tbody>`;
+  efs.forEach(ef => {
+    const a2 = h10.get(ef), b2 = h100.get(ef);
+    html += `<tr><td>hnsw_ef ${ef}</td>` +
+      cell(a2 && a2.r.toFixed(4)) + cell(a2 && a2.lo.toFixed(2)) +
+      cell(b2 && b2.r.toFixed(4)) + cell(b2 && b2.lo.toFixed(2)) + "</tr>";
+  });
+  html += "</tbody>";
+  document.getElementById("values").innerHTML = html;
 
   svg.setAttribute("aria-label",
     `Recall against p95 latency for binary quantization with rescoring, swept over oversampling 1x to 16x, ` +
