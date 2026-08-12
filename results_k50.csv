@@ -1,29 +1,38 @@
-config,limit,oversampling,rescore,hnsw_ef,exact,recall,p50_ms,p95_ms,p99_ms,mean_ms
-exact (ground truth),50,,,,True,1.0,8.545,8.882,9.366,8.5
-"HNSW, no quantization",50,,,,False,0.9919,1.935,2.404,3.733,2.034
-"HNSW, no quantization, ef=100",50,,,100,False,0.9919,1.885,2.138,2.464,1.883
-"HNSW, no quantization, ef=128",50,,,128,False,0.9945,2.093,2.616,5.466,2.199
-"HNSW, no quantization, ef=200",50,,,200,False,0.997,2.578,3.014,3.262,2.583
-"HNSW, no quantization, ef=300",50,,,300,False,0.9984,3.15,3.758,4.384,3.178
-"HNSW, no quantization, ef=512",50,,,512,False,0.9992,4.291,5.22,5.838,4.338
-"BQ, no rescore",50,1.0,False,,False,0.683,0.784,0.853,0.933,0.792
-"BQ + rescore, oversampling 1x",50,1.0,True,,False,0.9419,0.816,0.901,0.993,0.825
-"BQ + rescore, oversampling 1.5x",50,1.5,True,,False,0.9705,0.835,0.917,0.951,0.844
-"BQ + rescore, oversampling 2x",50,2.0,True,,False,0.981,0.865,1.017,1.221,0.886
-"BQ + rescore, oversampling 3x",50,3.0,True,,False,0.9913,0.929,1.014,1.072,0.939
-"BQ + rescore, oversampling 4x",50,4.0,True,,False,0.9948,1.0,1.175,1.569,1.033
-"BQ + rescore, oversampling 5x",50,5.0,True,,False,0.9967,1.065,1.155,1.259,1.072
-"BQ + rescore, oversampling 6x",50,6.0,True,,False,0.9978,1.139,1.247,1.382,1.15
-"BQ + rescore, oversampling 8x",50,8.0,True,,False,0.9987,1.28,1.414,1.533,1.291
-"BQ + rescore, oversampling 12x",50,12.0,True,,False,0.9994,1.553,1.695,1.817,1.559
-"BQ + rescore, oversampling 16x",50,16.0,True,,False,0.9996,1.817,2.219,2.621,1.882
-"BQ + rescore, oversampling 1x, ef=300",50,1.0,True,300,False,0.9453,0.946,1.291,2.337,1.01
-"BQ + rescore, oversampling 1.5x, ef=300",50,1.5,True,300,False,0.9744,0.948,1.059,1.226,0.961
-"BQ + rescore, oversampling 2x, ef=300",50,2.0,True,300,False,0.9857,0.963,1.067,1.167,0.972
-"BQ + rescore, oversampling 3x, ef=300",50,3.0,True,300,False,0.9939,1.007,1.112,1.183,1.017
-"BQ + rescore, oversampling 4x, ef=300",50,4.0,True,300,False,0.9961,1.053,1.154,1.452,1.062
-"BQ + rescore, oversampling 5x, ef=300",50,5.0,True,300,False,0.9973,1.098,1.201,1.347,1.108
-"BQ + rescore, oversampling 6x, ef=300",50,6.0,True,300,False,0.9978,1.141,1.255,1.37,1.153
-"BQ + rescore, oversampling 8x, ef=300",50,8.0,True,300,False,0.9987,1.284,1.408,1.539,1.293
-"BQ + rescore, oversampling 12x, ef=300",50,12.0,True,300,False,0.9994,1.553,1.73,1.924,1.568
-"BQ + rescore, oversampling 16x, ef=300",50,16.0,True,300,False,0.9996,1.81,2.019,2.274,1.832
+config,limit,oversampling,rescore,hnsw_ef,exact,recall,p50_ms,p95_ms,p99_ms,mean_ms,p95_spread_ms,reps
+exact (ground truth),50,,,,True,1.0,10.222,11.082,12.533,10.25,2.624,3
+"HNSW, no quantization",50,,,,False,0.9919,2.402,3.431,4.567,2.563,0.597,3
+"HNSW, no quantization, ef=100",50,,,100,False,0.9919,2.384,3.303,5.265,2.492,0.387,3
+"HNSW, no quantization, ef=128",50,,,128,False,0.9945,2.462,3.109,3.685,2.51,0.572,3
+"HNSW, no quantization, ef=200",50,,,200,False,0.997,3.316,4.238,5.946,3.471,0.835,3
+"HNSW, no quantization, ef=300",50,,,300,False,0.9984,4.358,5.658,7.265,4.508,0.73,3
+"HNSW, no quantization, ef=512",50,,,512,False,0.9992,5.843,9.015,12.665,6.353,2.75,3
+"BQ, no rescore, oversampling 1x",50,1.0,False,,False,0.683,0.855,1.007,1.1,0.887,0.225,3
+"BQ, no rescore, oversampling 1.5x",50,1.5,False,,False,0.683,0.8,0.864,0.927,0.803,0.065,3
+"BQ, no rescore, oversampling 2x",50,2.0,False,,False,0.683,0.874,0.977,1.025,0.883,0.138,3
+"BQ, no rescore, oversampling 3x",50,3.0,False,,False,0.6837,0.84,0.911,1.029,0.844,0.118,3
+"BQ, no rescore, oversampling 4x",50,4.0,False,,False,0.6837,0.845,0.921,0.974,0.852,0.016,3
+"BQ, no rescore, oversampling 5x",50,5.0,False,,False,0.6835,0.888,0.965,1.022,0.895,0.103,3
+"BQ, no rescore, oversampling 6x",50,6.0,False,,False,0.684,0.914,1.009,1.147,0.932,0.061,3
+"BQ, no rescore, oversampling 8x",50,8.0,False,,False,0.6842,0.98,1.098,1.199,0.991,0.104,3
+"BQ, no rescore, oversampling 12x",50,12.0,False,,False,0.6841,1.075,1.211,1.323,1.084,0.04,3
+"BQ, no rescore, oversampling 16x",50,16.0,False,,False,0.6842,1.146,1.272,1.368,1.156,0.024,3
+"BQ + rescore, oversampling 1x",50,1.0,True,,False,0.9419,0.83,0.904,0.942,0.835,0.047,3
+"BQ + rescore, oversampling 1.5x",50,1.5,True,,False,0.9705,0.861,0.958,1.578,0.881,0.079,3
+"BQ + rescore, oversampling 2x",50,2.0,True,,False,0.981,0.882,0.962,0.986,0.889,0.012,3
+"BQ + rescore, oversampling 3x",50,3.0,True,,False,0.9913,0.975,1.075,1.244,0.996,0.088,3
+"BQ + rescore, oversampling 4x",50,4.0,True,,False,0.9948,1.052,1.142,1.213,1.058,0.003,3
+"BQ + rescore, oversampling 5x",50,5.0,True,,False,0.9967,1.136,1.266,1.368,1.146,0.12,3
+"BQ + rescore, oversampling 6x",50,6.0,True,,False,0.9978,1.273,1.723,4.178,1.412,0.565,3
+"BQ + rescore, oversampling 8x",50,8.0,True,,False,0.9987,1.499,1.782,2.001,1.536,1.652,3
+"BQ + rescore, oversampling 12x",50,12.0,True,,False,0.9994,1.727,2.024,2.216,1.758,0.15,3
+"BQ + rescore, oversampling 16x",50,16.0,True,,False,0.9996,1.983,2.193,2.4,1.997,0.05,3
+"BQ + rescore, oversampling 1x, ef=300",50,1.0,True,300,False,0.9453,0.997,1.186,1.286,1.026,0.096,3
+"BQ + rescore, oversampling 1.5x, ef=300",50,1.5,True,300,False,0.9744,1.012,1.151,1.252,1.023,0.07,3
+"BQ + rescore, oversampling 2x, ef=300",50,2.0,True,300,False,0.9857,1.071,1.219,1.316,1.083,0.214,3
+"BQ + rescore, oversampling 3x, ef=300",50,3.0,True,300,False,0.9939,1.094,1.223,1.334,1.103,0.198,3
+"BQ + rescore, oversampling 4x, ef=300",50,4.0,True,300,False,0.9961,1.154,1.279,1.38,1.162,0.144,3
+"BQ + rescore, oversampling 5x, ef=300",50,5.0,True,300,False,0.9973,1.207,1.354,1.453,1.217,0.031,3
+"BQ + rescore, oversampling 6x, ef=300",50,6.0,True,300,False,0.9978,1.244,1.377,1.485,1.256,0.002,3
+"BQ + rescore, oversampling 8x, ef=300",50,8.0,True,300,False,0.9987,1.413,1.582,1.756,1.429,0.116,3
+"BQ + rescore, oversampling 12x, ef=300",50,12.0,True,300,False,0.9994,1.737,2.012,2.184,1.763,0.296,3
+"BQ + rescore, oversampling 16x, ef=300",50,16.0,True,300,False,0.9996,1.997,2.229,2.436,2.013,0.14,3

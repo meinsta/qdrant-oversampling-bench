@@ -18,6 +18,7 @@ DIM = 1536
 N_INDEX = 100_000
 N_QUERY = 1_000
 K = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+REPS = int(sys.argv[3]) if len(sys.argv) > 3 else 3  # latency percentiles are medianed over these
 
 # 3 shards x 38,462 rows covers N_INDEX + N_QUERY with room to spare
 REPO = "KShivendu/dbpedia-entities-openai-1M"
@@ -91,7 +92,10 @@ CONFIGS = (
     [("exact (ground truth)", dict(exact=True, quantization=NO_QUANT))]
     + [("HNSW, no quantization", dict(quantization=NO_QUANT))]
     + [(f"HNSW, no quantization, ef={ef}", dict(quantization=NO_QUANT, hnsw_ef=ef)) for ef in EF_SWEEP]
-    + [("BQ, no rescore", dict(quantization=models.QuantizationSearchParams(rescore=False, oversampling=1.0)))]
+    # rescore off across the same oversampling range: does oversampling alone recover anything?
+    + [(f"BQ, no rescore, oversampling {o}x",
+        dict(quantization=models.QuantizationSearchParams(rescore=False, oversampling=float(o))))
+       for o in OVERSAMPLING]
     + [(f"BQ + rescore, oversampling {o}x",
         dict(quantization=models.QuantizationSearchParams(rescore=True, oversampling=float(o))))
        for o in OVERSAMPLING]
@@ -117,6 +121,10 @@ def recall_at_k(ids, truth, k):
     return statistics.fmean(len(a & b) / k for a, b in zip(ids, truth))
 
 
+def pct(sorted_lat, p):
+    return sorted_lat[int(p * len(sorted_lat))]
+
+
 def bench():
     queries = np.load("queries.npy")
     print("warmup", flush=True)
@@ -125,13 +133,21 @@ def bench():
     rows = []
     truth = None
     for label, params in CONFIGS:
-        ids, lat = run(queries, params)
+        # Recall is deterministic, so one pass settles it. Latency is not: a single
+        # contended window moved a published p95 by 2.3x, so each percentile is the
+        # median of REPS passes, and p95_spread keeps that variation visible.
+        reps = []
+        ids = None
+        for _ in range(REPS):
+            ids, lat = run(queries, params)
+            lat.sort()
+            reps.append(lat)
         if truth is None:
             truth = ids
             recall = 1.0
         else:
             recall = recall_at_k(ids, truth, K)
-        lat.sort()
+        p95s = [pct(l, 0.95) for l in reps]
         q = params.get("quantization")
         row = dict(config=label, limit=K,
                    oversampling=q.oversampling if q else None,
@@ -139,10 +155,12 @@ def bench():
                    hnsw_ef=params.get("hnsw_ef"),
                    exact=bool(params.get("exact")),
                    recall=round(recall, 4),
-                   p50_ms=round(statistics.median(lat), 3),
-                   p95_ms=round(lat[int(0.95 * len(lat))], 3),
-                   p99_ms=round(lat[int(0.99 * len(lat))], 3),
-                   mean_ms=round(statistics.fmean(lat), 3))
+                   p50_ms=round(statistics.median([statistics.median(l) for l in reps]), 3),
+                   p95_ms=round(statistics.median(p95s), 3),
+                   p99_ms=round(statistics.median([pct(l, 0.99) for l in reps]), 3),
+                   mean_ms=round(statistics.median([statistics.fmean(l) for l in reps]), 3),
+                   p95_spread_ms=round(max(p95s) - min(p95s), 3),
+                   reps=REPS)
         rows.append(row)
         print(json.dumps(row), flush=True)
 
@@ -151,7 +169,7 @@ def bench():
 
 
 FIELDS = ["config", "limit", "oversampling", "rescore", "hnsw_ef", "exact",
-          "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms"]
+          "recall", "p50_ms", "p95_ms", "p99_ms", "mean_ms", "p95_spread_ms", "reps"]
 
 
 def write_csv(rows, path):
