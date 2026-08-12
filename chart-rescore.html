@@ -12,6 +12,7 @@
     --on:        #2a78d6;
     --off:       #eb6834;
     --band:      rgba(42,120,214,.09);
+    --ref:       #1baf7a;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -26,6 +27,7 @@
       --on:        #3987e5;
       --off:       #d95926;
       --band:      rgba(57,135,229,.13);
+      --ref:       #199e70;
     }
   }
   :root[data-theme="dark"] {
@@ -40,6 +42,7 @@
     --on:        #3987e5;
     --off:       #d95926;
     --band:      rgba(57,135,229,.13);
+    --ref:       #199e70;
   }
 
   * { box-sizing: border-box; }
@@ -68,23 +71,6 @@
   .tile .k { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
   .tile .v { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 28px; letter-spacing: -.02em; line-height: 1.1; }
   .tile .n { font-size: 13px; color: var(--muted); line-height: 1.45; }
-
-  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .flabel {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); margin-right: 4px;
-  }
-  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; background: var(--surface); }
-  .seg button {
-    appearance: none; border: 0; background: transparent; cursor: pointer;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink-2);
-    padding: 7px 15px; border-right: 1px solid var(--rule-soft);
-  }
-  .seg button:last-child { border-right: 0; }
-  .seg button:hover { background: var(--rule-soft); color: var(--ink); }
-  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
-  .seg button:focus-visible { outline: 2px solid var(--on); outline-offset: -2px; }
 
   figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 22px 20px 14px; }
   .chart-head { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
@@ -130,15 +116,11 @@
   <p class="sub">
     Binary quantization throws away almost everything about a vector. Rescoring reads the originals back
     to re-rank what the compressed index found &mdash; and without it, no amount of oversampling helps,
-    because there is nothing to re-rank with.
+    because there is nothing to re-rank with. Measured at <code>limit=10</code>, the most conservative
+    of the four limits tested.
   </p>
 
   <div class="tiles" id="tiles"></div>
-
-  <div class="filters">
-    <span class="flabel">Result limit</span>
-    <span class="seg" id="limit-seg" role="group" aria-label="Result limit"></span>
-  </div>
 
   <figure>
     <div class="chart-head">
@@ -146,6 +128,7 @@
       <div class="legend">
         <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5" fill="var(--on)"/></svg>rescore=true</span>
         <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="var(--off)" stroke-width="2"/></svg>rescore=false</span>
+        <span><svg width="24" height="13" aria-hidden="true"><path d="M0 6.5h24" stroke="var(--ref)" stroke-width="2" stroke-dasharray="6 4"/></svg>no quantization</span>
       </div>
     </div>
     <div class="plot"><svg id="chart" role="img"></svg></div>
@@ -165,14 +148,17 @@
 
 <script>
 const DATA = {"10":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":8.337,"p95":8.628,"p99":9.319,"r":1.0,"rs":null,"sp":0.119},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":1.715,"p95":2.007,"p99":3.186,"r":0.9943,"rs":null,"sp":0.257},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":1.716,"p95":1.964,"p99":2.356,"r":0.9943,"rs":null,"sp":0.058},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":1.933,"p95":2.2,"p99":2.449,"r":0.9956,"rs":null,"sp":0.078},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":2.425,"p95":2.833,"p99":3.304,"r":0.9976,"rs":null,"sp":0.363},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":3.053,"p95":3.595,"p99":3.925,"r":0.9987,"rs":null,"sp":0.05},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":4.189,"p95":5.051,"p99":5.534,"r":0.9992,"rs":null,"sp":0.095},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.633,"p95":0.694,"p99":0.777,"r":0.6725,"rs":false,"sp":0.036},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.633,"p95":0.724,"p99":0.778,"r":0.6725,"rs":false,"sp":0.098},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.622,"p95":0.673,"p99":0.731,"r":0.6725,"rs":false,"sp":0.041},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.622,"p95":0.676,"p99":0.764,"r":0.6725,"rs":false,"sp":0.031},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.617,"p95":0.671,"p99":0.733,"r":0.6725,"rs":false,"sp":0.01},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.615,"p95":0.657,"p99":0.715,"r":0.6725,"rs":false,"sp":0.01},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.623,"p95":0.682,"p99":0.754,"r":0.6725,"rs":false,"sp":0.009},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.617,"p95":0.67,"p99":0.778,"r":0.6725,"rs":false,"sp":0.022},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":0.63,"p95":0.671,"p99":0.739,"r":0.6732,"rs":false,"sp":0.081},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":0.651,"p95":0.718,"p99":0.876,"r":0.6736,"rs":false,"sp":0.054},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.62,"p95":0.699,"p99":1.058,"r":0.9238,"rs":true,"sp":0.048},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.632,"p95":0.727,"p99":0.863,"r":0.9606,"rs":true,"sp":0.179},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.632,"p95":0.682,"p99":0.743,"r":0.9747,"rs":true,"sp":0.019},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.642,"p95":0.697,"p99":0.786,"r":0.9862,"rs":true,"sp":0.043},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.654,"p95":0.71,"p99":0.821,"r":0.99,"rs":true,"sp":0.126},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.659,"p95":0.71,"p99":0.765,"r":0.9911,"rs":true,"sp":0.011},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.669,"p95":0.738,"p99":0.832,"r":0.9921,"rs":true,"sp":0.129},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.689,"p95":0.739,"p99":0.881,"r":0.9931,"rs":true,"sp":0.116},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":0.783,"p95":0.945,"p99":1.005,"r":0.9947,"rs":true,"sp":0.929},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":0.817,"p95":0.882,"p99":0.982,"r":0.9966,"rs":true,"sp":0.079},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":0.733,"p95":0.802,"p99":0.915,"r":0.9277,"rs":true,"sp":0.018},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":0.755,"p95":0.846,"p99":0.958,"r":0.9639,"rs":true,"sp":0.163},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":0.747,"p95":0.81,"p99":0.907,"r":0.9786,"rs":true,"sp":0.02},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":0.761,"p95":0.829,"p99":0.935,"r":0.9904,"rs":true,"sp":0.01},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":0.785,"p95":0.846,"p99":0.915,"r":0.994,"rs":true,"sp":0.107},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":0.788,"p95":0.861,"p99":1.032,"r":0.9957,"rs":true,"sp":0.021},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":0.806,"p95":0.885,"p99":1.005,"r":0.9967,"rs":true,"sp":0.026},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":0.838,"p95":0.95,"p99":1.149,"r":0.9975,"rs":true,"sp":0.232},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":0.875,"p95":0.952,"p99":1.049,"r":0.9987,"rs":true,"sp":0.029},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":0.952,"p95":1.132,"p99":1.346,"r":0.9989,"rs":true,"sp":0.143}],"20":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":10.711,"p95":12.402,"p99":14.317,"r":1.0,"rs":null,"sp":0.745},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":2.412,"p95":3.534,"p99":4.117,"r":0.994,"rs":null,"sp":0.32},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":2.524,"p95":3.638,"p99":4.145,"r":0.994,"rs":null,"sp":0.172},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":3.034,"p95":4.099,"p99":4.532,"r":0.9955,"rs":null,"sp":0.156},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":3.677,"p95":4.475,"p99":5.111,"r":0.9975,"rs":null,"sp":0.34},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":4.594,"p95":5.724,"p99":6.946,"r":0.9986,"rs":null,"sp":0.365},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":6.264,"p95":7.711,"p99":8.854,"r":0.9992,"rs":null,"sp":0.522},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.769,"p95":0.892,"p99":1.657,"r":0.682,"rs":false,"sp":0.341},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.768,"p95":0.813,"p99":0.895,"r":0.682,"rs":false,"sp":0.04},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.793,"p95":0.866,"p99":0.938,"r":0.682,"rs":false,"sp":0.017},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.859,"p95":1.34,"p99":2.675,"r":0.682,"rs":false,"sp":1.583},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.745,"p95":1.121,"p99":1.962,"r":0.682,"rs":false,"sp":0.221},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.763,"p95":0.894,"p99":1.026,"r":0.682,"rs":false,"sp":0.111},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.706,"p95":0.755,"p99":0.803,"r":0.6821,"rs":false,"sp":0.139},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.723,"p95":0.816,"p99":0.874,"r":0.683,"rs":false,"sp":0.061},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":0.783,"p95":0.851,"p99":0.925,"r":0.6831,"rs":false,"sp":0.014},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":0.815,"p95":0.909,"p99":0.994,"r":0.6833,"rs":false,"sp":0.054},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.73,"p95":0.799,"p99":0.837,"r":0.9354,"rs":true,"sp":0.09},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.718,"p95":0.9,"p99":1.042,"r":0.9685,"rs":true,"sp":0.963},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.749,"p95":0.855,"p99":0.977,"r":0.9804,"rs":true,"sp":0.081},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.788,"p95":0.933,"p99":1.071,"r":0.9876,"rs":true,"sp":0.102},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.782,"p95":0.872,"p99":0.956,"r":0.9907,"rs":true,"sp":0.024},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.798,"p95":0.899,"p99":0.955,"r":0.9919,"rs":true,"sp":0.028},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.86,"p95":0.997,"p99":1.076,"r":0.9935,"rs":true,"sp":0.061},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.917,"p95":1.063,"p99":1.143,"r":0.9958,"rs":true,"sp":0.061},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":1.08,"p95":1.237,"p99":1.364,"r":0.9981,"rs":true,"sp":0.247},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":1.24,"p95":1.442,"p99":1.582,"r":0.9988,"rs":true,"sp":0.777},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":0.897,"p95":1.054,"p99":1.138,"r":0.9387,"rs":true,"sp":0.029},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":0.92,"p95":1.165,"p99":1.295,"r":0.972,"rs":true,"sp":0.094},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":0.913,"p95":1.074,"p99":1.161,"r":0.9846,"rs":true,"sp":0.16},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":0.915,"p95":1.054,"p99":1.165,"r":0.992,"rs":true,"sp":0.152},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":0.945,"p95":1.076,"p99":1.148,"r":0.9951,"rs":true,"sp":0.29},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":1.089,"p95":1.48,"p99":2.06,"r":0.9966,"rs":true,"sp":0.456},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":1.029,"p95":1.301,"p99":1.849,"r":0.9975,"rs":true,"sp":0.586},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":1.013,"p95":1.194,"p99":1.316,"r":0.9982,"rs":true,"sp":0.377},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":1.17,"p95":1.451,"p99":1.672,"r":0.9986,"rs":true,"sp":1.475},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":1.45,"p95":1.808,"p99":2.081,"r":0.9988,"rs":true,"sp":0.346}],"50":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":10.222,"p95":11.082,"p99":12.533,"r":1.0,"rs":null,"sp":2.624},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":2.402,"p95":3.431,"p99":4.567,"r":0.9919,"rs":null,"sp":0.597},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":2.384,"p95":3.303,"p99":5.265,"r":0.9919,"rs":null,"sp":0.387},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":2.462,"p95":3.109,"p99":3.685,"r":0.9945,"rs":null,"sp":0.572},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":3.316,"p95":4.238,"p99":5.946,"r":0.997,"rs":null,"sp":0.835},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":4.358,"p95":5.658,"p99":7.265,"r":0.9984,"rs":null,"sp":0.73},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":5.843,"p95":9.015,"p99":12.665,"r":0.9992,"rs":null,"sp":2.75},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.855,"p95":1.007,"p99":1.1,"r":0.683,"rs":false,"sp":0.225},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.8,"p95":0.864,"p99":0.927,"r":0.683,"rs":false,"sp":0.065},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.874,"p95":0.977,"p99":1.025,"r":0.683,"rs":false,"sp":0.138},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.84,"p95":0.911,"p99":1.029,"r":0.6837,"rs":false,"sp":0.118},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.845,"p95":0.921,"p99":0.974,"r":0.6837,"rs":false,"sp":0.016},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.888,"p95":0.965,"p99":1.022,"r":0.6835,"rs":false,"sp":0.103},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.914,"p95":1.009,"p99":1.147,"r":0.684,"rs":false,"sp":0.061},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.98,"p95":1.098,"p99":1.199,"r":0.6842,"rs":false,"sp":0.104},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":1.075,"p95":1.211,"p99":1.323,"r":0.6841,"rs":false,"sp":0.04},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":1.146,"p95":1.272,"p99":1.368,"r":0.6842,"rs":false,"sp":0.024},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.83,"p95":0.904,"p99":0.942,"r":0.9419,"rs":true,"sp":0.047},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.861,"p95":0.958,"p99":1.578,"r":0.9705,"rs":true,"sp":0.079},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.882,"p95":0.962,"p99":0.986,"r":0.981,"rs":true,"sp":0.012},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.975,"p95":1.075,"p99":1.244,"r":0.9913,"rs":true,"sp":0.088},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":1.052,"p95":1.142,"p99":1.213,"r":0.9948,"rs":true,"sp":0.003},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":1.136,"p95":1.266,"p99":1.368,"r":0.9967,"rs":true,"sp":0.12},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":1.273,"p95":1.723,"p99":4.178,"r":0.9978,"rs":true,"sp":0.565},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":1.499,"p95":1.782,"p99":2.001,"r":0.9987,"rs":true,"sp":1.652},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":1.727,"p95":2.024,"p99":2.216,"r":0.9994,"rs":true,"sp":0.15},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":1.983,"p95":2.193,"p99":2.4,"r":0.9996,"rs":true,"sp":0.05},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":0.997,"p95":1.186,"p99":1.286,"r":0.9453,"rs":true,"sp":0.096},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":1.012,"p95":1.151,"p99":1.252,"r":0.9744,"rs":true,"sp":0.07},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":1.071,"p95":1.219,"p99":1.316,"r":0.9857,"rs":true,"sp":0.214},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":1.094,"p95":1.223,"p99":1.334,"r":0.9939,"rs":true,"sp":0.198},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":1.154,"p95":1.279,"p99":1.38,"r":0.9961,"rs":true,"sp":0.144},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":1.207,"p95":1.354,"p99":1.453,"r":0.9973,"rs":true,"sp":0.031},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":1.244,"p95":1.377,"p99":1.485,"r":0.9978,"rs":true,"sp":0.002},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":1.413,"p95":1.582,"p99":1.756,"r":0.9987,"rs":true,"sp":0.116},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":1.737,"p95":2.012,"p99":2.184,"r":0.9994,"rs":true,"sp":0.296},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":1.997,"p95":2.229,"p99":2.436,"r":0.9996,"rs":true,"sp":0.14}],"100":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":10.194,"p95":10.833,"p99":12.196,"r":1.0,"rs":null,"sp":1.413},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":2.175,"p95":2.395,"p99":2.478,"r":0.9877,"rs":null,"sp":0.723},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":2.189,"p95":2.415,"p99":2.57,"r":0.9877,"rs":null,"sp":0.097},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":2.427,"p95":2.716,"p99":2.858,"r":0.992,"rs":null,"sp":0.154},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":3.184,"p95":3.799,"p99":4.179,"r":0.996,"rs":null,"sp":0.21},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":4.152,"p95":4.861,"p99":5.187,"r":0.9979,"rs":null,"sp":0.161},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":5.501,"p95":6.455,"p99":7.888,"r":0.999,"rs":null,"sp":0.261},{"c":"BQ, no rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.997,"p95":1.067,"p99":1.113,"r":0.6873,"rs":false,"sp":0.136},{"c":"BQ, no rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":1.023,"p95":1.112,"p99":2.334,"r":0.6875,"rs":false,"sp":0.169},{"c":"BQ, no rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":1.063,"p95":1.15,"p99":1.195,"r":0.6876,"rs":false,"sp":0.127},{"c":"BQ, no rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":1.119,"p95":1.23,"p99":1.366,"r":0.6876,"rs":false,"sp":0.088},{"c":"BQ, no rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":1.183,"p95":1.294,"p99":1.706,"r":0.6878,"rs":false,"sp":0.033},{"c":"BQ, no rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":1.216,"p95":1.326,"p99":1.416,"r":0.6877,"rs":false,"sp":0.617},{"c":"BQ, no rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":1.478,"p95":1.861,"p99":2.354,"r":0.6875,"rs":false,"sp":0.478},{"c":"BQ, no rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":1.519,"p95":1.797,"p99":2.025,"r":0.6876,"rs":false,"sp":0.06},{"c":"BQ, no rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":1.758,"p95":2.081,"p99":2.294,"r":0.6877,"rs":false,"sp":0.956},{"c":"BQ, no rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":1.745,"p95":1.971,"p99":2.2,"r":0.6876,"rs":false,"sp":0.172},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":1.104,"p95":1.194,"p99":1.246,"r":0.9496,"rs":true,"sp":0.084},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":1.217,"p95":1.358,"p99":1.429,"r":0.977,"rs":true,"sp":0.03},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":1.267,"p95":1.382,"p99":1.497,"r":0.9871,"rs":true,"sp":0.084},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":1.498,"p95":1.7,"p99":1.8,"r":0.9946,"rs":true,"sp":0.207},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":1.649,"p95":1.85,"p99":1.96,"r":0.9972,"rs":true,"sp":0.254},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":1.768,"p95":1.967,"p99":2.085,"r":0.9982,"rs":true,"sp":0.035},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":1.948,"p95":2.3,"p99":2.683,"r":0.9988,"rs":true,"sp":0.33},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":2.486,"p95":3.533,"p99":4.295,"r":0.9992,"rs":true,"sp":1.531},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":2.779,"p95":3.529,"p99":4.019,"r":0.9997,"rs":true,"sp":0.642},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":3.405,"p95":4.586,"p99":6.248,"r":0.9997,"rs":true,"sp":0.571},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":1.412,"p95":2.08,"p99":2.889,"r":0.9532,"rs":true,"sp":1.161},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":1.355,"p95":1.562,"p99":1.945,"r":0.9793,"rs":true,"sp":0.169},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":1.429,"p95":1.697,"p99":2.211,"r":0.9883,"rs":true,"sp":0.191},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":1.481,"p95":1.67,"p99":1.925,"r":0.9946,"rs":true,"sp":0.217},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":1.641,"p95":1.937,"p99":2.107,"r":0.9972,"rs":true,"sp":0.215},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":1.783,"p95":1.959,"p99":2.267,"r":0.9982,"rs":true,"sp":0.136},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":1.995,"p95":2.226,"p99":2.504,"r":0.9988,"rs":true,"sp":0.575},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":2.246,"p95":2.593,"p99":2.969,"r":0.9992,"rs":true,"sp":0.235},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":2.81,"p95":3.097,"p99":3.335,"r":0.9997,"rs":true,"sp":2.616},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":3.456,"p95":4.407,"p99":4.968,"r":0.9997,"rs":true,"sp":3.251}]};
-const LIMITS = [10, 20, 50, 100];
-let limit = 10;
+const limit = 10;  // canonical: the common production top-k, the most conservative
+                    // recall gain of the four measured, and the least noisy
 
 const NS = "http://www.w3.org/2000/svg";
 const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
 const fmtO = o => (o % 1 ? o.toFixed(1) : o) + "\u00d7";
 const curve = on => DATA[limit].filter(d => d.rs === on && d.ef === null).sort((a, b) => a.o - b.o);
 const at = (on, o) => curve(on).find(d => d.o === o);
+// Unquantized search at the same default ef. Oversampling is a quantization search
+// parameter, so it does not apply here - hence a flat rule rather than a curve.
+const unquantized = () => DATA[limit].find(d => !d.ex && d.o === null && d.ef === null);
 
 const Y0 = 0.655, Y1 = 1.005;
 
@@ -230,6 +216,17 @@ function draw() {
        off.slice().reverse().map(d => `${X(d.o)},${Y(d.r)}`).join("L") + "Z",
     fill: "var(--band)", stroke: "none"}));
 
+  /* unquantized reference: the recall you get with no compression at all */
+  const uq = unquantized();
+  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(uq.r), y2: Y(uq.r),
+    stroke: "var(--ref)", "stroke-width": 2, "stroke-dasharray": "6 4"}));
+  text(svg, M.l + 6, Y(uq.r) - 9, `no quantization \u00b7 ${uq.r.toFixed(4)}`, "var(--ref)", "start", 600);
+  const uqHit = el("rect", {x: M.l, y: Y(uq.r) - 8, width: iw, height: 16, class: "hit"});
+  uqHit.addEventListener("mousemove", e => showTip(e,
+    `<b>No quantization, default ef</b><br>recall ${uq.r.toFixed(4)}<br>p95 ${uq.p95.toFixed(2)} ms`));
+  uqHit.addEventListener("mouseleave", hideTip);
+  svg.appendChild(uqHit);
+
   [[off, "var(--off)", false], [on, "var(--on)", true]].forEach(([pts, color, filled]) => {
     svg.appendChild(el("polyline", {points: pts.map(d => `${X(d.o)},${Y(d.r)}`).join(" "),
       fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round",
@@ -271,17 +268,20 @@ function draw() {
 
   const offGain = lastOff.r - off[0].r;
   document.getElementById("verdict").innerHTML =
-    `Rescoring alone lifts recall by <b>${(on1.r - off1.r).toFixed(3)}</b> at 1&times; oversampling, before any
-     extra candidates are fetched. Oversampling then carries it from <b>${on1.r.toFixed(4)}</b> to
-     <b>${lastOn.r.toFixed(4)}</b> at 16&times;. Without rescoring, the same 1&times;-to-16&times; sweep moves recall by
-     <b>${offGain.toFixed(4)}</b> &mdash; the flat line. Oversampling widens the pool; rescoring is what
-     reads the original vectors, and only one of those two recovers accuracy.`;
+    `At limit ${limit}, rescoring alone lifts recall by <b>${(on1.r - off1.r).toFixed(3)}</b> at 1&times;
+     oversampling, before any extra candidates are fetched. Oversampling then carries it from
+     <b>${on1.r.toFixed(4)}</b> to <b>${lastOn.r.toFixed(4)}</b> at 16&times;, crossing the unquantized
+     baseline at 12&times;. Without rescoring, the same sweep moves recall by <b>${offGain.toFixed(4)}</b>
+     &mdash; the flat orange line. Oversampling widens the pool; rescoring is what reads the original
+     vectors. The green rule is a rule and not a curve because oversampling is a quantization search
+     parameter: it does not apply to an unquantized search. The same gap holds at the other limits
+     measured &mdash; +0.253 at 20, +0.259 at 50, +0.262 at 100.`;
 
   const dp = on1.p95 - off1.p95;
   document.getElementById("tiles").innerHTML = `
     <div class="tile"><span class="k">Rescoring, recall gained</span>
       <span class="v" style="color:var(--on)">+${(on1.r - off1.r).toFixed(3)}</span>
-      <span class="n">At 1&times; oversampling, limit ${limit}: ${off1.r.toFixed(4)} to ${on1.r.toFixed(4)}.</span></div>
+      <span class="n">At 1&times; oversampling: ${off1.r.toFixed(4)} to ${on1.r.toFixed(4)}.</span></div>
     <div class="tile"><span class="k">Rescoring, latency cost</span>
       <span class="v">${dp >= 0 ? "+" : ""}${dp.toFixed(2)}<span style="font-size:15px"> ms</span></span>
       <span class="n">p95 ${off1.p95.toFixed(2)} to ${on1.p95.toFixed(2)} ms &mdash; inside the run-to-run noise.</span></div>
@@ -289,19 +289,6 @@ function draw() {
       <span class="v" style="color:var(--off)">+${offGain.toFixed(4)}</span>
       <span class="n">Recall gained going 1&times; to 16&times; with rescore off. Effectively nothing.</span></div>`;
 }
-
-const seg = document.getElementById("limit-seg");
-LIMITS.forEach(l => {
-  const b = document.createElement("button");
-  b.type = "button"; b.textContent = l;
-  b.setAttribute("aria-pressed", String(l === limit));
-  b.addEventListener("click", () => {
-    limit = l;
-    [...seg.children].forEach(c => c.setAttribute("aria-pressed", String(+c.textContent === l)));
-    draw();
-  });
-  seg.appendChild(b);
-});
 
 draw();
 </script>
