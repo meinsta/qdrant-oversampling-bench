@@ -1,4 +1,4 @@
-<title>Oversampling: recall vs latency, measured</title>
+<title>Oversampling vs ef: recall and latency, measured</title>
 <style>
   :root {
     color-scheme: light;
@@ -13,6 +13,7 @@
     --s1-soft:     rgba(42,120,214,.10);
     --s2:          #eb6834;
     --s2-soft:     rgba(235,104,52,.10);
+    --s3:          #1baf7a;
     --critical:    #d03b3b;
     --crit-soft:   rgba(208,59,59,.07);
   }
@@ -30,6 +31,7 @@
       --s1-soft:   rgba(57,135,229,.14);
       --s2:        #d95926;
       --s2-soft:   rgba(217,89,38,.14);
+      --s3:        #199e70;
       --critical:  #e06060;
       --crit-soft: rgba(224,96,96,.10);
     }
@@ -47,6 +49,7 @@
     --s1-soft:   rgba(57,135,229,.14);
     --s2:        #d95926;
     --s2-soft:   rgba(217,89,38,.14);
+    --s3:        #199e70;
     --critical:  #e06060;
     --crit-soft: rgba(224,96,96,.10);
   }
@@ -57,15 +60,11 @@
     background: var(--ground);
     color: var(--ink);
     font: 400 16px/1.62 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    margin: 0;
-    padding: 0 20px 96px;
+    margin: 0; padding: 0 20px 96px;
     -webkit-font-smoothing: antialiased;
   }
-
   .wrap { max-width: 1020px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
-  .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 
-  /* ---- masthead: an instrument's metadata header ---- */
   header { padding-top: 64px; display: flex; flex-direction: column; gap: 26px; }
   .eyebrow {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -73,15 +72,15 @@
   }
   h1 {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-size: clamp(27px, 4.4vw, 43px); line-height: 1.13; letter-spacing: -.025em;
+    font-size: clamp(26px, 4.2vw, 41px); line-height: 1.14; letter-spacing: -.025em;
     font-weight: 600; margin: 0; text-wrap: balance;
   }
   h1 .dim { color: var(--muted); font-weight: 400; }
-  .standfirst { font-size: 18.5px; line-height: 1.6; color: var(--ink-2); max-width: 63ch; margin: 0; }
+  .standfirst { font-size: 18.5px; line-height: 1.6; color: var(--ink-2); max-width: 64ch; margin: 0; }
 
   .spec {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
-    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); margin: 0;
   }
   .spec div { padding: 13px 16px 14px 0; border-right: 1px solid var(--rule-soft); }
   .spec div:last-child { border-right: 0; }
@@ -100,15 +99,32 @@
     font-size: 13px; letter-spacing: .14em; text-transform: uppercase; font-weight: 600;
     color: var(--ink); margin: 0; padding-bottom: 11px; border-bottom: 1px solid var(--ink);
   }
-  h3 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -.005em; }
   p { margin: 0; max-width: 68ch; color: var(--ink-2); }
   p strong { color: var(--ink); font-weight: 600; }
   .num { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; color: var(--ink); }
 
+  /* ---- filter row ---- */
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .filters .flabel {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); margin-right: 4px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    appearance: none; border: 0; background: transparent; cursor: pointer;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums; font-size: 13px; color: var(--ink-2);
+    padding: 7px 15px; border-right: 1px solid var(--rule-soft);
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button:hover { background: var(--rule-soft); color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+  .seg button:focus-visible { outline: 2px solid var(--s1); outline-offset: -2px; }
+
   /* ---- charts ---- */
   figure { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 22px 20px 16px; }
-  figcaption { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--rule-soft); font-size: 13.5px; line-height: 1.55; color: var(--muted); max-width: 74ch; }
-  .chart-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  figcaption { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--rule-soft); font-size: 13.5px; line-height: 1.55; color: var(--muted); max-width: 76ch; }
+  .chart-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
   .chart-title { font-size: 15.5px; font-weight: 600; color: var(--ink); }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; }
   .legend span {
@@ -116,8 +132,6 @@
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
     font-size: 12px; color: var(--ink-2);
   }
-  .swatch { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-  .swatch.hollow { background: transparent; border: 2px solid currentColor; border-radius: 2px; }
   .plot { width: 100%; overflow-x: auto; }
   svg { display: block; }
   svg text { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
@@ -137,7 +151,6 @@
   }
   .tip b { font-weight: 600; }
 
-  /* ---- callout ---- */
   .callout {
     display: flex; gap: 16px; align-items: flex-start;
     background: var(--crit-soft); border-left: 3px solid var(--critical);
@@ -149,56 +162,45 @@
     font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--critical); font-weight: 600; margin-bottom: 5px;
   }
 
-  /* ---- readings ---- */
-  .readings { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
-  .reading { background: var(--surface); padding: 18px 18px 19px; display: flex; flex-direction: column; gap: 5px; }
-  .reading .k { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-  .reading .v { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 27px; letter-spacing: -.02em; line-height: 1.1; }
-  .reading .n { font-size: 13px; color: var(--muted); line-height: 1.45; }
-
-  /* ---- table ---- */
-  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+  .tablewrap { overflow: auto; max-height: 560px; border: 1px solid var(--rule); background: var(--surface); }
   table { border-collapse: collapse; width: 100%; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 13px; }
   th, td { padding: 8px 14px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--rule-soft); }
-  th { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--ink); position: sticky; top: 0; background: var(--surface); }
+  th { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--ink); position: sticky; top: 0; background: var(--surface); z-index: 1; }
   td:first-child, th:first-child { text-align: left; }
   tbody tr:hover td { background: var(--rule-soft); }
   tr.band td { color: var(--muted); }
-  tr.mark td:first-child { box-shadow: inset 3px 0 0 var(--s2); font-weight: 600; }
-  tr.mark td { color: var(--ink); }
-  .kchip { display: inline-block; padding: 1px 7px; border-radius: 2px; font-size: 11px; }
-  .k10 { background: var(--s1-soft); color: var(--s1); }
-  .k100 { background: var(--s2-soft); color: var(--s2); }
+  tr.win td { color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--s2); }
+  caption { text-align: left; padding: 0 0 10px; font-size: 13px; color: var(--muted); }
 
   pre {
     margin: 0; overflow-x: auto; background: var(--surface); border: 1px solid var(--rule);
     padding: 15px 17px; border-radius: 3px; font-size: 12.5px; line-height: 1.65;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; color: var(--ink-2);
   }
-  ul { margin: 0; padding-left: 20px; color: var(--ink-2); max-width: 70ch; display: flex; flex-direction: column; gap: 9px; }
+  ul { margin: 0; padding-left: 20px; color: var(--ink-2); max-width: 72ch; display: flex; flex-direction: column; gap: 9px; }
   li::marker { color: var(--muted); }
   a { color: var(--s1); text-underline-offset: 2px; }
-  a:focus-visible, tr:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
-  footer { border-top: 1px solid var(--rule); padding-top: 22px; font-size: 13.5px; color: var(--muted); max-width: 74ch; }
+  a:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+  footer { border-top: 1px solid var(--rule); padding-top: 22px; font-size: 13.5px; color: var(--muted); max-width: 76ch; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
 <div class="wrap">
 
   <header>
-    <div class="eyebrow">Measured run &middot; 10 Aug 2026</div>
-    <h1>Oversampling buys recall.<br><span class="dim">Here is what it costs.</span></h1>
+    <div class="eyebrow">Measured run &middot; Qdrant 1.19.0 &middot; 12 Aug 2026</div>
+    <h1>Two ways to buy recall.<br><span class="dim">One of them is three times cheaper.</span></h1>
     <p class="standfirst">
-      Qdrant's docs say oversampling trades speed for quality and suggest 3&times;. No published source puts
-      both numbers on one chart for one dataset. This is that chart: one collection, one query set,
-      recall and p95 latency recorded together at every setting.
+      Binary quantization with oversampling, or an unquantized index with a bigger <code>ef</code> &mdash;
+      both walk more candidates to find more of the true neighbours. Only one walks them as single bits.
+      This is both frontiers measured on one collection, with recall and p95 latency recorded together.
     </p>
     <dl class="spec">
-      <div><dt>Engine</dt><dd>Qdrant 1.19.0</dd></div>
       <div><dt>Vectors</dt><dd>100,000</dd></div>
       <div><dt>Dimensions</dt><dd>1536 &middot; cosine</dd></div>
       <div><dt>Queries</dt><dd>1,000 held out</dd></div>
-      <div><dt>Quantization</dt><dd>Binary, in RAM</dd></div>
+      <div><dt>Limits</dt><dd>10 &middot; 20 &middot; 50 &middot; 100</dd></div>
+      <div><dt>Configurations</dt><dd>27 per limit</dd></div>
       <div><dt>Host</dt><dd>Apple M5 &middot; 16 GB</dd></div>
     </dl>
   </header>
@@ -206,64 +208,74 @@
   <section>
     <h2>The finding</h2>
     <p>
-      The tradeoff is real, but its slope is set by how many results you ask for. At <span class="num">k=10</span>
-      the entire sweep from 1&times; to 16&times; costs <strong><span class="num">0.22 ms</span> of p95</strong> and buys
-      <strong><span class="num">7.3</span> points of recall</strong> &mdash; the knob is close to free, and there is no
-      reason to run it low. At <span class="num">k=100</span> the same sweep costs
-      <strong><span class="num">2.0 ms</span></strong>, and every step past 4&times; is paying real latency for
-      hundredths of a point.
+      At a <strong>matched <code>ef</code> of 300</strong>, binary quantization with rescoring beats the
+      unquantized index on <strong>both</strong> axes at every limit tested. It needs more oversampling
+      than the documented 3x to get there &mdash; and the multiplier it needs <em>falls</em> as the limit
+      grows, because a larger limit already gives the rescore pass more candidates to work with.
     </p>
-    <p>
-      The more useful result is where the curves cross plain HNSW. At <span class="num">k=100</span>,
-      binary quantization at <strong>3&times; oversampling with rescore beats un-quantized HNSW on both axes</strong>
-      &mdash; <span class="num">0.9946</span> recall at <span class="num">1.49 ms</span> against
-      <span class="num">0.9877</span> at <span class="num">2.25 ms</span> &mdash; while using a 32&times; smaller index for search.
-      Qdrant's recommended default lands exactly on the useful part of the curve.
-    </p>
-    <div class="readings">
-      <div class="reading"><span class="k">3&times; &middot; k=100 &middot; recall</span><span class="v" style="color:var(--s2)">0.9946</span><span class="n">Above un-quantized HNSW (0.9877) and 34% faster.</span></div>
-      <div class="reading"><span class="k">Cost of 1&times; &rarr; 16&times; &middot; k=10</span><span class="v">+0.22<span style="font-size:15px"> ms</span></span><span class="n">p95 goes 0.65 &rarr; 0.87 ms. Recall goes 0.924 &rarr; 0.997.</span></div>
-      <div class="reading"><span class="k">Cost of 1&times; &rarr; 16&times; &middot; k=100</span><span class="v">+1.96<span style="font-size:15px"> ms</span></span><span class="n">p95 goes 1.14 &rarr; 3.10 ms. Recall goes 0.950 &rarr; 0.9997.</span></div>
-      <div class="reading"><span class="k">Rescore off</span><span class="v" style="color:var(--critical)">0.687</span><span class="n">A third of the true top-100 missing, at every oversampling value.</span></div>
+    <div class="tablewrap" style="max-height:none">
+      <table>
+        <caption>Cheapest oversampling that matches or beats unquantized HNSW at ef=300, both sides at ef=300.</caption>
+        <thead><tr>
+          <th scope="col">Limit</th><th scope="col">Unquantized, ef=300</th>
+          <th scope="col">Cheapest BQ that matches it</th><th scope="col">Speedup</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>10</td><td>0.9987 / 3.71 ms</td><td>12x &middot; 0.9987 / 1.15 ms</td><td>3.2x</td></tr>
+          <tr><td>20</td><td>0.9986 / 3.57 ms</td><td>12x &middot; 0.9986 / 1.16 ms</td><td>3.1x</td></tr>
+          <tr><td>50</td><td>0.9984 / 3.76 ms</td><td>8x &middot; 0.9987 / 1.41 ms</td><td>2.7x</td></tr>
+          <tr><td>100</td><td>0.9979 / 4.42 ms</td><td>5x &middot; 0.9982 / 1.77 ms</td><td>2.5x</td></tr>
+        </tbody>
+      </table>
     </div>
+    <p>
+      This is a latency win, not a memory win. Rescoring reads the original float vectors, so they stay
+      resident and the 1-bit copy is stored <em>in addition to</em> them.
+    </p>
   </section>
 
   <section>
-    <h2>Recall against latency</h2>
+    <h2>Both frontiers</h2>
+    <div class="filters">
+      <span class="flabel">Limit</span>
+      <span class="seg" id="limit-seg" role="group" aria-label="Result limit"></span>
+    </div>
     <figure>
       <div class="chart-head">
-        <span class="chart-title">recall@k vs p95 latency, oversampling 1&times; &rarr; 16&times;</span>
+        <span class="chart-title" id="c1-title"></span>
         <div class="legend">
-          <span><i class="swatch" style="background:var(--s1)"></i>k=10</span>
-          <span><i class="swatch" style="background:var(--s2)"></i>k=100</span>
-          <span style="color:var(--muted)"><i class="swatch hollow"></i>HNSW, no quantization</span>
+          <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5" fill="var(--s2)"/></svg>BQ + rescore, ef=300</span>
+          <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="var(--s1)" stroke-width="2"/></svg>BQ + rescore, default ef</span>
+          <span><svg width="13" height="13" aria-hidden="true"><path d="M6.5 1 12 6.5 6.5 12 1 6.5Z" fill="var(--s3)"/></svg>No quantization, ef sweep</span>
         </div>
       </div>
-      <div class="plot"><svg id="c1" role="img" aria-label="Connected scatter of recall against p95 latency across oversampling values, for k=10 and k=100. Both curves rise steeply then flatten; the k=10 curve is compressed into a narrow latency range while the k=100 curve stretches across two milliseconds."></svg></div>
+      <div class="plot"><svg id="c1" role="img"></svg></div>
       <figcaption>
-        Up and to the left is better. Each point is one oversampling value; the line connects them in order.
-        Ground truth is exact KNN on the same collection, so 1.000 is reachable by construction &mdash; nothing here
-        is limited by the embedding model. Exact search itself sits far off this chart at
-        <span class="num">8.4 ms</span> p95.
+        Up and to the left is better. The green diamonds are the unquantized index at ef 100 to 512; the
+        orange circles are binary quantization at ef=300 across oversampling 1x to 16x. Where the orange
+        curve sits left of the green one at the same height, quantization is buying that recall more
+        cheaply. Exact KNN sits off-chart at roughly <span class="num">8.5 ms</span>.
       </figcaption>
     </figure>
   </section>
 
   <section>
-    <h2>Where the curve flattens</h2>
+    <h2>How much oversampling you actually need</h2>
     <figure>
       <div class="chart-head">
-        <span class="chart-title">recall@k by oversampling factor</span>
+        <span class="chart-title" id="c2-title"></span>
         <div class="legend">
-          <span><i class="swatch" style="background:var(--s1)"></i>k=10</span>
-          <span><i class="swatch" style="background:var(--s2)"></i>k=100</span>
+          <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5" fill="var(--s2)"/></svg>ef=300</span>
+          <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="var(--s1)" stroke-width="2"/></svg>default ef</span>
         </div>
       </div>
-      <div class="plot"><svg id="c2" role="img" aria-label="Recall by oversampling factor for k=10 and k=100. Both curves cross 0.99 recall early &mdash; k=100 at 3x, k=10 at 4x &mdash; and are visually flat past 6x."></svg></div>
+      <div class="plot"><svg id="c2" role="img"></svg></div>
       <figcaption>
-        The dashed rule is <span class="num">0.99</span> recall. <span class="num">k=100</span> clears it at 3&times;;
-        <span class="num">k=10</span> needs 4&times;. Both clear the 95% production floor by 1.5&times;. Past 6&times; the curves
-        are flat and you are buying thousandths.
+        The dashed rule is the recall of the unquantized index at ef=300 for this limit &mdash; the parity
+        line. Where the curve crosses it, quantization has caught up. Raising <code>ef</code> from the
+        default to 300 lifts the quantized curve too, by three to four tenths of a point at low
+        oversampling &mdash; but how long that help lasts depends on the limit. At limit 100 the two
+        curves converge by 3x; at limit 10 the gap is still there at 12x.
       </figcaption>
     </figure>
   </section>
@@ -274,21 +286,24 @@
       <svg width="19" height="19" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.6 18.4 17H1.6L10 2.6Z" fill="none" stroke="var(--critical)" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 7.6v4.2M10 14.3v.9" stroke="var(--critical)" stroke-width="1.7" stroke-linecap="round"/></svg>
       <div>
         <div class="lede">Binary quantization with rescore off</div>
-        <p><span class="num">0.6725</span> recall@10 and <span class="num">0.6873</span> recall@100 &mdash; and oversampling
-        cannot rescue it, because there is nothing to re-rank with. It is the fastest row in the table and the only
-        one that is wrong. The docs say rescore is required; measured, "required" means a third of your results.</p>
+        <p><span class="num">0.6725</span> to <span class="num">0.6873</span> recall across all four
+        limits, and oversampling cannot rescue it because there is nothing to re-rank with. It is the
+        fastest configuration measured and the only one that is wrong.</p>
       </div>
     </div>
   </section>
 
   <section>
     <h2>Every measurement</h2>
+    <p style="font-size:14px">108 rows: 27 configurations at each of four limits. Rows that match or beat
+      the unquantized ef=300 baseline for their limit are marked.</p>
     <div class="tablewrap">
       <table>
-        <caption class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Recall and latency percentiles for each search configuration at k=10 and k=100.</caption>
-        <thead>
-          <tr><th scope="col">Configuration</th><th scope="col">k</th><th scope="col">Oversampling</th><th scope="col">Recall@k</th><th scope="col">p50 ms</th><th scope="col">p95 ms</th><th scope="col">p99 ms</th></tr>
-        </thead>
+        <thead><tr>
+          <th scope="col">Configuration</th><th scope="col">Limit</th><th scope="col">Oversampling</th>
+          <th scope="col">Rescore</th><th scope="col">ef</th><th scope="col">Recall</th>
+          <th scope="col">p50 ms</th><th scope="col">p95 ms</th><th scope="col">p99 ms</th>
+        </tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
@@ -297,85 +312,74 @@
   <section>
     <h2>How it was measured</h2>
     <ul>
-      <li><strong>Dataset.</strong> <span class="num">KShivendu/dbpedia-entities-openai-1M</span> &mdash; DBpedia entity
-        text embedded with OpenAI <span class="num">text-embedding-ada-002</span>, 1536 dimensions. First 100,000
-        rows indexed; the next 1,000 held out as queries. No query appears in the index.</li>
+      <li><strong>Grid.</strong> Follows the parameter sweep in Qdrant's
+        <a href="https://qdrant.tech/articles/binary-quantization-openai/">OpenAI binary-quantization
+        article</a> &mdash; oversampling x rescore x limit, limits 10/20/50/100 &mdash; and adds latency
+        percentiles plus an <code>ef</code> sweep on both the quantized and unquantized side.</li>
+      <li><strong>Dataset.</strong> <span class="num">KShivendu/dbpedia-entities-openai-1M</span>, DBpedia
+        entity text embedded with OpenAI <span class="num">text-embedding-ada-002</span>, 1536 dimensions.
+        First 100,000 rows indexed, the next 1,000 held out as queries.</li>
       <li><strong>Ground truth.</strong> Exact KNN over the same collection
-        (<span class="num">exact=true</span>, quantization ignored), following Qdrant's documented ANN-recall
-        method. Recall is the overlap of the approximate and exact id sets, divided by k, averaged over 1,000 queries.
-        This measures index and quantization loss only &mdash; not whether the embedding model retrieves the right thing.</li>
-      <li><strong>Index.</strong> Default HNSW (m=16, ef_construct=100, default query ef), binary quantization with
-        <span class="num">always_ram</span>, original vectors in RAM. Collection green and fully indexed before any
-        timing. Rescoring from disk is a different and much slower story; it is not what these numbers show.</li>
-      <li><strong>Timing.</strong> 1,000 sequential single queries per configuration over local gRPC, 50-query warmup,
-        client-side wall clock. That includes roughly a third of a millisecond of transport, so read these as
-        relative distances between configurations rather than as an absolute service latency. No concurrency &mdash;
-        throughput under load is a separate measurement.</li>
-      <li><strong>Scope.</strong> One dataset, one embedding model, one node, 100k vectors. Binary quantization is
-        sensitive to dimensionality and to how the model distributes its components; 1536-dimension OpenAI vectors
-        are its best case. Re-run before quoting these numbers for a different model.</li>
+        (<span class="num">exact=true</span>, quantization ignored), per Qdrant's
+        <a href="https://qdrant.tech/documentation/tutorials-search-engineering/ann-recall/#automate-in-ci-with-python">documented
+        ANN-recall method</a>. Recall is the overlap of the approximate and exact id sets divided by the
+        limit, averaged over 1,000 queries. Every target is reachable by construction, so this isolates
+        index and quantization loss and says nothing about whether the embedding model retrieves the
+        right thing.</li>
+      <li><strong>Why sweep <code>ef</code> at all.</strong> Oversampling raises the candidate count the
+        index has to walk, so binary quantization at 16x does much more graph work than an unquantized
+        search at the default. Sweeping <code>ef</code> on the unquantized side, and repeating the whole
+        oversampling range at a fixed <code>ef</code>, is what makes the comparison apples-to-apples.</li>
+      <li><strong>The default <code>ef</code> is 100.</strong> Leaving <code>hnsw_ef</code> unset gives
+        recall identical to four decimals to an explicit <span class="num">ef=100</span> at every limit,
+        which is this collection's <span class="num">ef_construct</span>. Qdrant's docs do not state the
+        default; this is what it measures as.</li>
+      <li><strong>Index.</strong> m=16, ef_construct=100, binary quantization with
+        <span class="num">always_ram</span>, original vectors in RAM. Green and fully indexed before any
+        query is timed. Rescoring from disk is a different and much slower story, not measured here.</li>
+      <li><strong>Timing.</strong> 1,000 sequential single queries per configuration over local gRPC,
+        200-query warmup, client-side wall clock, nothing else running on the host. Roughly 0.3 ms of
+        every figure is client and transport overhead.</li>
+      <li><strong>Noise floor.</strong> p95 carries about 0.2 to 0.3 ms of run-to-run variation, so a few
+        cells break monotonicity. The frontier gaps quoted here are 1 to 3 ms. Use <code>p50_ms</code>
+        from the CSVs if you need finer resolution.</li>
     </ul>
     <p style="margin-top:6px">Reproduce with:</p>
-    <pre>./qdrant &amp;                        # Qdrant 1.19.0, defaults
-python bench.py ingest            # 100k vectors, BQ enabled, wait for green
-python bench.py bench 10          # sweep at k=10   &rarr; results_k10.csv
-python bench.py bench 100         # sweep at k=100  &rarr; results_k100.csv</pre>
+    <pre>docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant:v1.19.0
+python bench.py ingest
+for k in 10 20 50 100; do python bench.py bench $k; done
+python summarize.py</pre>
   </section>
 
   <footer>
-    This replaces a placeholder whose axes were unlabeled because no published source paired recall with latency
-    across oversampling values on one dataset. They are labeled now.
+    This replaces a placeholder whose axes were unlabeled because no published source paired recall with
+    latency across oversampling values on one dataset. It also replaces a first pass of this chart whose
+    unquantized baseline ran at the default <code>ef</code>, which flattered quantization.
+    Source and raw results: <a href="https://github.com/meinsta/qdrant-oversampling-bench">meinsta/qdrant-oversampling-bench</a>.
   </footer>
 </div>
 
 <div class="tip" id="tip"></div>
 
 <script>
-const K10 = [
-  {c:"exact (ground truth)", o:null, r:1.0,    p50:8.137, p95:8.377, p99:10.301},
-  {c:"HNSW, no quantization",o:null, r:0.9943, p50:1.652, p95:1.870, p99:2.024},
-  {c:"BQ, no rescore",       o:null, r:0.6725, p50:0.609, p95:0.665, p99:0.749},
-  {c:"BQ + rescore",         o:1,    r:0.9238, p50:0.613, p95:0.652, p99:0.700},
-  {c:"BQ + rescore",         o:1.5,  r:0.9606, p50:0.616, p95:0.676, p99:0.739},
-  {c:"BQ + rescore",         o:2,    r:0.9747, p50:0.620, p95:0.681, p99:0.754},
-  {c:"BQ + rescore",         o:3,    r:0.9862, p50:0.629, p95:0.747, p99:0.816},
-  {c:"BQ + rescore",         o:4,    r:0.9900, p50:0.637, p95:0.738, p99:0.805},
-  {c:"BQ + rescore",         o:5,    r:0.9911, p50:0.642, p95:0.757, p99:1.720},
-  {c:"BQ + rescore",         o:6,    r:0.9921, p50:0.649, p95:0.712, p99:0.758},
-  {c:"BQ + rescore",         o:8,    r:0.9931, p50:0.669, p95:0.719, p99:0.770},
-  {c:"BQ + rescore",         o:12,   r:0.9947, p50:0.711, p95:0.803, p99:0.870},
-  {c:"BQ + rescore",         o:16,   r:0.9966, p50:0.764, p95:0.867, p99:0.962},
-];
-const K100 = [
-  {c:"exact (ground truth)", o:null, r:1.0,    p50:8.495, p95:8.700, p99:8.804},
-  {c:"HNSW, no quantization",o:null, r:0.9877, p50:2.007, p95:2.252, p99:2.433},
-  {c:"BQ, no rescore",       o:null, r:0.6873, p50:0.977, p95:1.061, p99:1.116},
-  {c:"BQ + rescore",         o:1,    r:0.9496, p50:1.053, p95:1.143, p99:1.207},
-  {c:"BQ + rescore",         o:1.5,  r:0.9770, p50:1.124, p95:1.322, p99:1.448},
-  {c:"BQ + rescore",         o:2,    r:0.9871, p50:1.191, p95:1.312, p99:1.386},
-  {c:"BQ + rescore",         o:3,    r:0.9946, p50:1.332, p95:1.488, p99:1.643},
-  {c:"BQ + rescore",         o:4,    r:0.9972, p50:1.462, p95:1.659, p99:1.782},
-  {c:"BQ + rescore",         o:5,    r:0.9982, p50:1.592, p95:1.828, p99:1.959},
-  {c:"BQ + rescore",         o:6,    r:0.9988, p50:1.712, p95:1.940, p99:2.101},
-  {c:"BQ + rescore",         o:8,    r:0.9992, p50:1.933, p95:2.190, p99:2.327},
-  {c:"BQ + rescore",         o:12,   r:0.9997, p50:2.378, p95:2.700, p99:3.151},
-  {c:"BQ + rescore",         o:16,   r:0.9997, p50:2.791, p95:3.098, p99:3.244},
-];
-const SERIES = [
-  {k:10,  rows:K10,  color:"var(--s1)", label:"k=10"},
-  {k:100, rows:K100, color:"var(--s2)", label:"k=100"},
-];
-const sweep = s => s.rows.filter(d => d.o !== null);
-const ref   = s => s.rows.find(d => d.c === "HNSW, no quantization");
+const DATA = {"10":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":8.32,"p95":8.587,"p99":10.584,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":1.739,"p95":1.993,"p99":2.224,"r":0.9943,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":1.72,"p95":1.968,"p99":2.112,"r":0.9943,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":1.941,"p95":2.23,"p99":2.437,"r":0.9956,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":2.451,"p95":2.883,"p99":3.378,"r":0.9976,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":3.028,"p95":3.708,"p99":4.629,"r":0.9987,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":4.06,"p95":4.864,"p99":5.331,"r":0.9992,"rs":null},{"c":"BQ, no rescore","ef":null,"ex":false,"o":1.0,"p50":0.637,"p95":0.91,"p99":1.6,"r":0.6725,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.634,"p95":0.776,"p99":1.01,"r":0.9238,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.633,"p95":0.746,"p99":0.872,"r":0.9606,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.642,"p95":0.821,"p99":2.435,"r":0.9747,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.643,"p95":0.746,"p99":0.812,"r":0.9862,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.666,"p95":0.867,"p99":1.047,"r":0.99,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.68,"p95":0.946,"p99":1.726,"r":0.9911,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.664,"p95":1.056,"p99":2.443,"r":0.9921,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.737,"p95":0.979,"p99":1.238,"r":0.9931,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":0.722,"p95":0.875,"p99":0.968,"r":0.9947,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":0.77,"p95":0.836,"p99":0.937,"r":0.9966,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":0.725,"p95":0.98,"p99":1.185,"r":0.9277,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":0.734,"p95":1.02,"p99":2.814,"r":0.9639,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":0.741,"p95":1.088,"p99":1.597,"r":0.9786,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":0.758,"p95":0.996,"p99":1.22,"r":0.9904,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":0.749,"p95":0.993,"p99":1.218,"r":0.994,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":0.766,"p95":1.124,"p99":1.456,"r":0.9957,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":0.786,"p95":1.097,"p99":1.279,"r":0.9967,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":0.789,"p95":1.017,"p99":2.574,"r":0.9975,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":0.841,"p95":1.153,"p99":1.561,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":0.858,"p95":1.113,"p99":1.405,"r":0.9989,"rs":true}],"20":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":8.333,"p95":8.561,"p99":10.223,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":1.722,"p95":1.991,"p99":2.822,"r":0.994,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":1.769,"p95":2.151,"p99":3.572,"r":0.994,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":1.996,"p95":2.411,"p99":2.686,"r":0.9955,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":2.463,"p95":2.929,"p99":3.349,"r":0.9975,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":3.021,"p95":3.566,"p99":3.808,"r":0.9986,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":4.179,"p95":5.195,"p99":7.495,"r":0.9992,"rs":null},{"c":"BQ, no rescore","ef":null,"ex":false,"o":1.0,"p50":0.649,"p95":0.709,"p99":0.82,"r":0.682,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.66,"p95":0.722,"p99":0.785,"r":0.9354,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.663,"p95":0.708,"p99":0.774,"r":0.9685,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.672,"p95":0.734,"p99":0.813,"r":0.9804,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.688,"p95":0.748,"p99":0.795,"r":0.9876,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":0.703,"p95":0.772,"p99":0.832,"r":0.9907,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":0.718,"p95":0.787,"p99":1.736,"r":0.9919,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":0.747,"p95":0.818,"p99":0.902,"r":0.9935,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":0.823,"p95":1.095,"p99":1.499,"r":0.9958,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":1.197,"p95":2.362,"p99":4.473,"r":0.9981,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":1.085,"p95":1.346,"p99":2.637,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":0.811,"p95":1.006,"p99":1.437,"r":0.9387,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":0.774,"p95":0.912,"p99":1.042,"r":0.972,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":0.782,"p95":0.895,"p99":1.006,"r":0.9846,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":0.792,"p95":0.89,"p99":1.005,"r":0.992,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":0.817,"p95":1.056,"p99":1.19,"r":0.9951,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":0.832,"p95":0.988,"p99":1.191,"r":0.9966,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":0.846,"p95":0.975,"p99":1.097,"r":0.9975,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":0.887,"p95":1.022,"p99":1.165,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":0.977,"p95":1.157,"p99":1.272,"r":0.9986,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":1.064,"p95":1.219,"p99":1.345,"r":0.9988,"rs":true}],"50":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":8.545,"p95":8.882,"p99":9.366,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":1.935,"p95":2.404,"p99":3.733,"r":0.9919,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":1.885,"p95":2.138,"p99":2.464,"r":0.9919,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":2.093,"p95":2.616,"p99":5.466,"r":0.9945,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":2.578,"p95":3.014,"p99":3.262,"r":0.997,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":3.15,"p95":3.758,"p99":4.384,"r":0.9984,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":4.291,"p95":5.22,"p99":5.838,"r":0.9992,"rs":null},{"c":"BQ, no rescore","ef":null,"ex":false,"o":1.0,"p50":0.784,"p95":0.853,"p99":0.933,"r":0.683,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":0.816,"p95":0.901,"p99":0.993,"r":0.9419,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":0.835,"p95":0.917,"p99":0.951,"r":0.9705,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":0.865,"p95":1.017,"p99":1.221,"r":0.981,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":0.929,"p95":1.014,"p99":1.072,"r":0.9913,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":1.0,"p95":1.175,"p99":1.569,"r":0.9948,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":1.065,"p95":1.155,"p99":1.259,"r":0.9967,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":1.139,"p95":1.247,"p99":1.382,"r":0.9978,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":1.28,"p95":1.414,"p99":1.533,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":1.553,"p95":1.695,"p99":1.817,"r":0.9994,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":1.817,"p95":2.219,"p99":2.621,"r":0.9996,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":0.946,"p95":1.291,"p99":2.337,"r":0.9453,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":0.948,"p95":1.059,"p99":1.226,"r":0.9744,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":0.963,"p95":1.067,"p99":1.167,"r":0.9857,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":1.007,"p95":1.112,"p99":1.183,"r":0.9939,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":1.053,"p95":1.154,"p99":1.452,"r":0.9961,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":1.098,"p95":1.201,"p99":1.347,"r":0.9973,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":1.141,"p95":1.255,"p99":1.37,"r":0.9978,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":1.284,"p95":1.408,"p99":1.539,"r":0.9987,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":1.553,"p95":1.73,"p99":1.924,"r":0.9994,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":1.81,"p95":2.019,"p99":2.274,"r":0.9996,"rs":true}],"100":[{"c":"exact (ground truth)","ef":null,"ex":true,"o":null,"p50":8.766,"p95":9.008,"p99":9.269,"r":1.0,"rs":null},{"c":"HNSW, no quantization","ef":null,"ex":false,"o":null,"p50":2.062,"p95":2.287,"p99":2.422,"r":0.9877,"rs":null},{"c":"HNSW, no quantization, ef=100","ef":100,"ex":false,"o":null,"p50":2.048,"p95":2.279,"p99":2.412,"r":0.9877,"rs":null},{"c":"HNSW, no quantization, ef=128","ef":128,"ex":false,"o":null,"p50":2.339,"p95":2.734,"p99":2.978,"r":0.992,"rs":null},{"c":"HNSW, no quantization, ef=200","ef":200,"ex":false,"o":null,"p50":2.74,"p95":3.127,"p99":3.289,"r":0.996,"rs":null},{"c":"HNSW, no quantization, ef=300","ef":300,"ex":false,"o":null,"p50":3.453,"p95":4.425,"p99":4.911,"r":0.9979,"rs":null},{"c":"HNSW, no quantization, ef=512","ef":512,"ex":false,"o":null,"p50":4.402,"p95":5.121,"p99":5.533,"r":0.999,"rs":null},{"c":"BQ, no rescore","ef":null,"ex":false,"o":1.0,"p50":1.0,"p95":1.089,"p99":1.42,"r":0.6873,"rs":false},{"c":"BQ + rescore, oversampling 1x","ef":null,"ex":false,"o":1.0,"p50":1.068,"p95":1.17,"p99":1.26,"r":0.9496,"rs":true},{"c":"BQ + rescore, oversampling 1.5x","ef":null,"ex":false,"o":1.5,"p50":1.133,"p95":1.239,"p99":1.333,"r":0.977,"rs":true},{"c":"BQ + rescore, oversampling 2x","ef":null,"ex":false,"o":2.0,"p50":1.215,"p95":1.339,"p99":1.765,"r":0.9871,"rs":true},{"c":"BQ + rescore, oversampling 3x","ef":null,"ex":false,"o":3.0,"p50":1.361,"p95":1.512,"p99":3.008,"r":0.9946,"rs":true},{"c":"BQ + rescore, oversampling 4x","ef":null,"ex":false,"o":4.0,"p50":1.503,"p95":1.723,"p99":2.064,"r":0.9972,"rs":true},{"c":"BQ + rescore, oversampling 5x","ef":null,"ex":false,"o":5.0,"p50":1.636,"p95":1.788,"p99":1.925,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 6x","ef":null,"ex":false,"o":6.0,"p50":1.755,"p95":1.919,"p99":2.046,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 8x","ef":null,"ex":false,"o":8.0,"p50":2.001,"p95":2.229,"p99":2.713,"r":0.9992,"rs":true},{"c":"BQ + rescore, oversampling 12x","ef":null,"ex":false,"o":12.0,"p50":2.462,"p95":2.68,"p99":2.929,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 16x","ef":null,"ex":false,"o":16.0,"p50":2.893,"p95":3.123,"p99":3.293,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 1x, ef=300","ef":300,"ex":false,"o":1.0,"p50":1.172,"p95":1.281,"p99":1.342,"r":0.9532,"rs":true},{"c":"BQ + rescore, oversampling 1.5x, ef=300","ef":300,"ex":false,"o":1.5,"p50":1.209,"p95":1.326,"p99":1.457,"r":0.9793,"rs":true},{"c":"BQ + rescore, oversampling 2x, ef=300","ef":300,"ex":false,"o":2.0,"p50":1.267,"p95":1.67,"p99":2.051,"r":0.9883,"rs":true},{"c":"BQ + rescore, oversampling 3x, ef=300","ef":300,"ex":false,"o":3.0,"p50":1.358,"p95":1.492,"p99":1.814,"r":0.9946,"rs":true},{"c":"BQ + rescore, oversampling 4x, ef=300","ef":300,"ex":false,"o":4.0,"p50":1.522,"p95":1.739,"p99":1.893,"r":0.9972,"rs":true},{"c":"BQ + rescore, oversampling 5x, ef=300","ef":300,"ex":false,"o":5.0,"p50":1.628,"p95":1.767,"p99":1.895,"r":0.9982,"rs":true},{"c":"BQ + rescore, oversampling 6x, ef=300","ef":300,"ex":false,"o":6.0,"p50":1.754,"p95":1.92,"p99":2.124,"r":0.9988,"rs":true},{"c":"BQ + rescore, oversampling 8x, ef=300","ef":300,"ex":false,"o":8.0,"p50":2.007,"p95":2.218,"p99":2.401,"r":0.9992,"rs":true},{"c":"BQ + rescore, oversampling 12x, ef=300","ef":300,"ex":false,"o":12.0,"p50":2.465,"p95":2.679,"p99":2.874,"r":0.9997,"rs":true},{"c":"BQ + rescore, oversampling 16x, ef=300","ef":300,"ex":false,"o":16.0,"p50":2.9,"p95":3.144,"p99":3.553,"r":0.9997,"rs":true}]};
+const LIMITS = [10, 20, 50, 100];
+let limit = 100;
+
 const NS = "http://www.w3.org/2000/svg";
 const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
 const fmtO = o => (o % 1 ? o.toFixed(1) : o) + "\u00d7";
+const rows = () => DATA[limit];
+const sweep = ef => rows().filter(d => d.rs === true && d.ef === ef).sort((a, b) => a.o - b.o);
+const efCurve = () => rows().filter(d => !d.ex && d.o === null && d.ef !== null).sort((a, b) => a.ef - b.ef);
+const baseline = () => rows().find(d => !d.ex && d.o === null && d.ef === 300);
 
-/* ---- tooltip ---- */
+/* fixed domains so switching limit never rescales the axes */
+const X0 = 0.6, X1 = 5.4, Y0 = 0.918, Y1 = 1.002;
+
 const tip = document.getElementById("tip");
 function showTip(evt, html) {
-  tip.innerHTML = html;
-  tip.style.opacity = 1;
+  tip.innerHTML = html; tip.style.opacity = 1;
   const r = tip.getBoundingClientRect();
   let x = evt.clientX + 14, y = evt.clientY - r.height - 12;
   if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
@@ -385,140 +389,156 @@ function showTip(evt, html) {
 const hideTip = () => { tip.style.opacity = 0; };
 addEventListener("scroll", hideTip, {passive: true});
 
-function point(g, cx, cy, color, html) {
-  g.appendChild(el("circle", {cx, cy, r: 5, fill: color, stroke: "var(--surface)", "stroke-width": 2}));
+function mark(g, kind, cx, cy, color, html) {
+  if (kind === "filled") g.appendChild(el("circle", {cx, cy, r: 5, fill: color, stroke: "var(--surface)", "stroke-width": 2}));
+  else if (kind === "hollow") g.appendChild(el("circle", {cx, cy, r: 4.5, fill: "var(--surface)", stroke: color, "stroke-width": 2}));
+  else g.appendChild(el("path", {d: `M${cx} ${cy - 6}L${cx + 6} ${cy}L${cx} ${cy + 6}L${cx - 6} ${cy}Z`, fill: color, stroke: "var(--surface)", "stroke-width": 1.5}));
   const hit = el("circle", {cx, cy, r: 15, class: "hit"});
   hit.addEventListener("mousemove", e => showTip(e, html));
   hit.addEventListener("mouseleave", hideTip);
   g.appendChild(hit);
 }
 
-/* ================= chart 1: recall vs p95 latency ================= */
+function frame(svg, W, H, M, xticks, xfmt, xtitle) {
+  svg.textContent = "";
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("width", "100%"); svg.setAttribute("height", H);
+  const iw = W - M.l - M.r, ih = H - M.t - M.b;
+  const Y = v => M.t + (1 - (v - Y0) / (Y1 - Y0)) * ih;
+  for (let v = 0.92; v <= 1.0001; v += 0.01) {
+    svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v), class: "grid"}));
+    const t = el("text", {x: M.l - 11, y: Y(v) + 4, class: "tick", "text-anchor": "end"});
+    t.textContent = v.toFixed(2); svg.appendChild(t);
+  }
+  xticks.forEach(([v, x]) => {
+    svg.appendChild(el("line", {x1: x, x2: x, y1: M.t, y2: M.t + ih, class: "grid"}));
+    const t = el("text", {x, y: M.t + ih + 21, class: "tick", "text-anchor": "middle"});
+    t.textContent = xfmt(v); svg.appendChild(t);
+  });
+  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, class: "axis"}));
+  svg.appendChild(el("line", {x1: M.l, x2: M.l, y1: M.t, y2: M.t + ih, class: "axis"}));
+  let a = el("text", {x: M.l + iw / 2, y: H - 10, class: "axis-title", "text-anchor": "middle"});
+  a.textContent = xtitle; svg.appendChild(a);
+  a = el("text", {x: -(M.t + ih / 2), y: 15, class: "axis-title", "text-anchor": "middle", transform: "rotate(-90)"});
+  a.textContent = "RECALL@LIMIT"; svg.appendChild(a);
+  return {iw, ih, Y};
+}
+
+function line(svg, pts, color, dash) {
+  const a = {points: pts.join(" "), fill: "none", stroke: color, "stroke-width": 2,
+             "stroke-linejoin": "round", "stroke-linecap": "round"};
+  if (dash) a["stroke-dasharray"] = dash;
+  svg.appendChild(el("polyline", a));
+}
+
+function label(svg, x, y, text, color, anchor) {
+  const t = el("text", {x, y, class: "plabel", fill: color, "text-anchor": anchor || "middle"});
+  t.textContent = text; svg.appendChild(t);
+}
+
+/* ---------- chart 1: recall vs p95, both frontiers ---------- */
 function chart1() {
   const svg = document.getElementById("c1");
-  const W = 940, H = 470, M = {t: 16, r: 26, b: 52, l: 62};
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.setAttribute("width", "100%"); svg.setAttribute("height", H);
-  const iw = W - M.l - M.r, ih = H - M.t - M.b;
-  const x0 = 0.5, x1 = 3.3, y0 = 0.918, y1 = 1.002;
-  const X = v => M.l + (v - x0) / (x1 - x0) * iw;
-  const Y = v => M.t + (1 - (v - y0) / (y1 - y0)) * ih;
+  const W = 940, H = 480, M = {t: 18, r: 30, b: 52, l: 62};
+  const iw = W - M.l - M.r;
+  const X = v => M.l + (v - X0) / (X1 - X0) * iw;
+  const ticks = [];
+  for (let v = 1; v <= 5.0001; v += 1) ticks.push([v, X(v)]);
+  const {Y} = frame(svg, W, H, M, ticks, v => v.toFixed(0), "P95 LATENCY (MS) \u2014 LOWER IS BETTER");
 
-  for (let v = 0.92; v <= 1.0001; v += 0.01) {
-    svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v), class: "grid"}));
-    const t = el("text", {x: M.l - 11, y: Y(v) + 4, class: "tick", "text-anchor": "end"});
-    t.textContent = v.toFixed(2); svg.appendChild(t);
-  }
-  for (let v = 0.5; v <= 3.3001; v += 0.5) {
-    svg.appendChild(el("line", {x1: X(v), x2: X(v), y1: M.t, y2: M.t + ih, class: "grid"}));
-    const t = el("text", {x: X(v), y: M.t + ih + 21, class: "tick", "text-anchor": "middle"});
-    t.textContent = v.toFixed(1); svg.appendChild(t);
-  }
-  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, class: "axis"}));
-  svg.appendChild(el("line", {x1: M.l, x2: M.l, y1: M.t, y2: M.t + ih, class: "axis"}));
-
-  let ax = el("text", {x: M.l + iw / 2, y: H - 10, class: "axis-title", "text-anchor": "middle"});
-  ax.textContent = "P95 LATENCY (MS) \u2014 LOWER IS BETTER"; svg.appendChild(ax);
-  let ay = el("text", {x: -(M.t + ih / 2), y: 15, class: "axis-title", "text-anchor": "middle", transform: "rotate(-90)"});
-  ay.textContent = "RECALL@K"; svg.appendChild(ay);
-
-  SERIES.forEach(s => {
-    const pts = sweep(s);
-    svg.appendChild(el("polyline", {
-      points: pts.map(d => `${X(d.p95)},${Y(d.r)}`).join(" "),
-      fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round",
-    }));
-    // reference: un-quantized HNSW, hollow square
-    const rf = ref(s), rx = X(rf.p95), ry = Y(rf.r);
-    svg.appendChild(el("rect", {x: rx - 5.5, y: ry - 5.5, width: 11, height: 11, fill: "var(--surface)", stroke: s.color, "stroke-width": 2}));
-    const rhit = el("circle", {cx: rx, cy: ry, r: 15, class: "hit"});
-    const rhtml = `<b>${s.label} \u00b7 no quantization</b><br>recall ${rf.r.toFixed(4)}<br>p95 ${rf.p95.toFixed(3)} ms`;
-    rhit.addEventListener("mousemove", e => showTip(e, rhtml));
-    rhit.addEventListener("mouseleave", hideTip);
-    svg.appendChild(rhit);
-    const rl = el("text", {x: rx, y: ry + 22, class: "plabel", "text-anchor": "middle", fill: "var(--muted)"});
-    rl.textContent = "no quant."; svg.appendChild(rl);
-
-    pts.forEach(d => point(svg, X(d.p95), Y(d.r), s.color,
-      `<b>${s.label} \u00b7 ${fmtO(d.o)} oversampling</b><br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(3)} ms \u00b7 p50 ${d.p50.toFixed(3)} ms`));
-
-    // selective direct labels only; k=10's cluster is too tight for a mid-curve label
-    (s.k === 10 ? [1, 16] : [1, 3, 16]).forEach(o => {
-      const d = pts.find(p => p.o === o); if (!d) return;
-      const above = o === 16;
-      const t = el("text", {x: X(d.p95) + (o === 1 ? 0 : 0), y: Y(d.r) + (above ? -13 : 20), class: "plabel",
-        "text-anchor": o === 16 ? "end" : "middle", fill: s.color});
-      t.textContent = fmtO(o); svg.appendChild(t);
+  const series = [
+    {rows: sweep(null), color: "var(--s1)", kind: "hollow", name: "BQ, default ef", dash: "5 4",
+     tag: d => `${fmtO(d.o)} oversampling, default ef`, labels: [1], side: "left"},
+    {rows: sweep(300), color: "var(--s2)", kind: "filled", name: "BQ, ef=300",
+     tag: d => `${fmtO(d.o)} oversampling, ef=300`, labels: [1, 3, 16]},
+    {rows: efCurve(), color: "var(--s3)", kind: "diamond", name: "no quantization",
+     tag: d => `no quantization, ef=${d.ef}`, labels: [100, 300, 512], key: d => d.ef},
+  ];
+  series.forEach(s => {
+    line(svg, s.rows.map(d => `${X(d.p95)},${Y(d.r)}`), s.color, s.dash);
+    s.rows.forEach(d => mark(svg, s.kind, X(d.p95), Y(d.r), s.color,
+      `<b>${s.tag(d)}</b><br>limit ${limit}<br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(2)} ms \u00b7 p50 ${d.p50.toFixed(2)} ms`));
+    const keyOf = s.key || (d => d.o);
+    s.labels.forEach(v => {
+      const d = s.rows.find(r => keyOf(r) === v); if (!d) return;
+      const text = s.key ? "ef " + v : fmtO(v);
+      if (s.side === "left") return label(svg, X(d.p95) - 9, Y(d.r) + 4, text, s.color, "end");
+      const first = v === s.labels[0], last = v === s.labels[s.labels.length - 1];
+      // mid-curve BQ labels go to the right: those points stack vertically at small limits.
+      // The ef curve is spread along x, so its labels stay above the marks.
+      if (!first && !last && !s.key) return label(svg, X(d.p95) + 10, Y(d.r) + 4, text, s.color, "start");
+      label(svg, X(d.p95), Y(d.r) + (last ? -13 : 21), text, s.color);
     });
-    // series label at the curve's end
-    const last = pts[pts.length - 1];
-    const sl = el("text", {x: X(last.p95) + 10, y: Y(last.r) + 4, class: "plabel", fill: s.color, "font-weight": 600});
-    sl.textContent = s.label; svg.appendChild(sl);
   });
+  document.getElementById("c1-title").textContent =
+    `recall vs p95 latency at limit ${limit} \u2014 oversampling against ef`;
 }
 
-/* ================= chart 2: recall vs oversampling ================= */
+/* ---------- chart 2: recall vs oversampling, with the parity line ---------- */
 function chart2() {
   const svg = document.getElementById("c2");
-  const W = 940, H = 400, M = {t: 16, r: 58, b: 52, l: 62};
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.setAttribute("width", "100%"); svg.setAttribute("height", H);
-  const iw = W - M.l - M.r, ih = H - M.t - M.b;
-  const y0 = 0.918, y1 = 1.002;
+  const W = 940, H = 400, M = {t: 18, r: 74, b: 52, l: 62};
+  const iw = W - M.l - M.r;
   const lo = Math.log2(1), hi = Math.log2(16);
   const X = v => M.l + (Math.log2(v) - lo) / (hi - lo) * iw;
-  const Y = v => M.t + (1 - (v - y0) / (y1 - y0)) * ih;
+  const ticks = [1, 1.5, 2, 3, 4, 6, 8, 12, 16].map(v => [v, X(v)]);
+  const {Y} = frame(svg, W, H, M, ticks, fmtO, "OVERSAMPLING FACTOR (LOG SCALE)");
 
-  for (let v = 0.92; v <= 1.0001; v += 0.01) {
-    svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v), class: "grid"}));
-    const t = el("text", {x: M.l - 11, y: Y(v) + 4, class: "tick", "text-anchor": "end"});
-    t.textContent = v.toFixed(2); svg.appendChild(t);
-  }
-  [1, 1.5, 2, 3, 4, 6, 8, 12, 16].forEach(v => {
-    const t = el("text", {x: X(v), y: M.t + ih + 21, class: "tick", "text-anchor": "middle"});
-    t.textContent = fmtO(v); svg.appendChild(t);
+  const base = baseline();
+  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(base.r), y2: Y(base.r),
+    stroke: "var(--s3)", "stroke-width": 1.5, "stroke-dasharray": "6 4"}));
+  label(svg, M.l + iw + 8, Y(base.r) + 4, "parity", "var(--s3)", "start");
+  label(svg, M.l + iw + 8, Y(base.r) + 18, base.r.toFixed(4), "var(--s3)", "start");
+
+  [{rows: sweep(null), color: "var(--s1)", kind: "hollow", dash: "5 4", n: "default ef"},
+   {rows: sweep(300), color: "var(--s2)", kind: "filled", n: "ef=300"}].forEach(s => {
+    line(svg, s.rows.map(d => `${X(d.o)},${Y(d.r)}`), s.color, s.dash);
+    s.rows.forEach(d => mark(svg, s.kind, X(d.o), Y(d.r), s.color,
+      `<b>${fmtO(d.o)} oversampling, ${s.n}</b><br>limit ${limit}<br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(2)} ms`));
   });
-  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, class: "axis"}));
-  svg.appendChild(el("line", {x1: M.l, x2: M.l, y1: M.t, y2: M.t + ih, class: "axis"}));
-
-  // 0.99 reference rule
-  svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: Y(0.99), y2: Y(0.99),
-    stroke: "var(--muted)", "stroke-width": 1, "stroke-dasharray": "5 4"}));
-  const rt = el("text", {x: M.l + iw + 8, y: Y(0.99) + 4, class: "plabel", fill: "var(--muted)"});
-  rt.textContent = "0.99"; svg.appendChild(rt);
-
-  let ax = el("text", {x: M.l + iw / 2, y: H - 10, class: "axis-title", "text-anchor": "middle"});
-  ax.textContent = "OVERSAMPLING FACTOR (LOG SCALE)"; svg.appendChild(ax);
-  let ay = el("text", {x: -(M.t + ih / 2), y: 15, class: "axis-title", "text-anchor": "middle", transform: "rotate(-90)"});
-  ay.textContent = "RECALL@K"; svg.appendChild(ay);
-
-  SERIES.forEach(s => {
-    const pts = sweep(s);
-    svg.appendChild(el("polyline", {
-      points: pts.map(d => `${X(d.o)},${Y(d.r)}`).join(" "),
-      fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round",
-    }));
-    pts.forEach(d => point(svg, X(d.o), Y(d.r), s.color,
-      `<b>${s.label} \u00b7 ${fmtO(d.o)} oversampling</b><br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(3)} ms`));
-    const last = pts[pts.length - 1];
-    const sl = el("text", {x: X(last.o) + 10, y: Y(last.r) + 4, class: "plabel", fill: s.color, "font-weight": 600});
-    sl.textContent = s.label; svg.appendChild(sl);
-  });
+  document.getElementById("c2-title").textContent =
+    `recall@${limit} by oversampling, against the unquantized parity line`;
 }
 
-/* ================= table ================= */
+/* ---------- table: all 108 rows ---------- */
 function table() {
   const tb = document.getElementById("tbody");
-  SERIES.forEach(s => s.rows.forEach(d => {
-    const tr = document.createElement("tr");
-    if (d.o === null) tr.className = "band";
-    if (d.o === 3) tr.className = "mark";
-    const chip = `<span class="kchip k${s.k}">k=${s.k}</span>`;
-    tr.innerHTML = `<td>${d.c}</td><td>${chip}</td><td>${d.o === null ? "\u2014" : fmtO(d.o)}</td>` +
-      `<td>${d.r.toFixed(4)}</td><td>${d.p50.toFixed(3)}</td><td>${d.p95.toFixed(3)}</td><td>${d.p99.toFixed(3)}</td>`;
-    tb.appendChild(tr);
-  }));
+  tb.textContent = "";
+  LIMITS.forEach(l => {
+    const base = DATA[l].find(d => !d.ex && d.o === null && d.ef === 300);
+    DATA[l].forEach(d => {
+      const tr = document.createElement("tr");
+      if (d.ex || d.o === null) tr.className = "band";
+      if (d.rs === true && d.r >= base.r && d.p95 <= base.p95) tr.className = "win";
+      tr.innerHTML = `<td>${d.c}</td><td>${l}</td><td>${d.o === null ? "\u2014" : fmtO(d.o)}</td>` +
+        `<td>${d.rs === null ? "\u2014" : d.rs ? "on" : "off"}</td><td>${d.ef === null ? "default" : d.ef}</td>` +
+        `<td>${d.r.toFixed(4)}</td><td>${d.p50.toFixed(3)}</td><td>${d.p95.toFixed(3)}</td><td>${d.p99.toFixed(3)}</td>`;
+      tb.appendChild(tr);
+    });
+  });
 }
 
-chart1(); chart2(); table();
+/* ---------- limit filter ---------- */
+const seg = document.getElementById("limit-seg");
+LIMITS.forEach(l => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = l;
+  b.setAttribute("aria-pressed", String(l === limit));
+  b.addEventListener("click", () => {
+    limit = l;
+    [...seg.children].forEach(c => c.setAttribute("aria-pressed", String(+c.textContent === l)));
+    draw();
+  });
+  seg.appendChild(b);
+});
+
+function draw() {
+  chart1(); chart2();
+  document.getElementById("c1").setAttribute("aria-label",
+    `Recall against p95 latency at limit ${limit}. Binary quantization with rescoring at ef 300 sits left of the unquantized ef sweep at the same recall, so it reaches that recall at lower latency.`);
+  document.getElementById("c2").setAttribute("aria-label",
+    `Recall by oversampling factor at limit ${limit}, with a dashed parity line at the recall of the unquantized index at ef 300.`);
+}
+
+draw(); table();
 </script>
