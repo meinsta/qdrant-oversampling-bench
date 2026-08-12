@@ -121,10 +121,11 @@
 
   <figure>
     <div class="chart-head">
-      <span class="chart-title">recall@10 against p95 latency, matched candidate pools of 10 to 160</span>
+      <span class="chart-title">recall@10 against p95 latency &mdash; oversampling 1&times;&ndash;16&times; against hnsw_ef 10&ndash;512</span>
       <div class="legend">
         <span><svg width="13" height="13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="5" fill="var(--bq)"/></svg>binary quantization + rescore</span>
-        <span><svg width="13" height="13" aria-hidden="true"><path d="M6.5 1 12 6.5 6.5 12 1 6.5Z" fill="var(--fl)"/></svg>no quantization</span>
+        <span><svg width="13" height="13" aria-hidden="true"><path d="M6.5 1 12 6.5 6.5 12 1 6.5Z" fill="var(--fl)"/></svg>no quantization, ef 10&ndash;512</span>
+        <span><svg width="13" height="13" aria-hidden="true"><path d="M6.5 1.5 11.5 6.5 6.5 11.5 1.5 6.5Z" fill="none" stroke="var(--fl)" stroke-width="1.8"/></svg>ef sweep only, no matched pair</span>
       </div>
     </div>
     <div class="plot"><svg id="chart" role="img"></svg></div>
@@ -158,8 +159,13 @@ const fmtO = o => (o % 1 ? o.toFixed(1) : o) + "\u00d7";
 const rows = DATA[limit];
 const bqAt = o => rows.find(d => d.rs === true && d.o === o && d.ef === poolOf(o));
 const flAt = o => rows.find(d => d.ex === false && d.o === null && d.rs === null && d.ef === poolOf(o));
+// The whole uncompressed control frontier: the pool-matched runs are themselves an ef sweep
+// (10 to 160), so merging them with the standalone sweep gives one curve from ef 10 to 512.
+const flAll = [...new Map(
+  rows.filter(d => d.ex === false && d.o === null && d.rs === null && d.ef !== null)
+      .map(d => [d.ef, d])).values()].sort((a, b) => a.ef - b.ef);
 
-const X0 = 0.5, X1 = 2.6, Y0 = 0.818, Y1 = 1.004;
+const X0 = 0.5, X1 = 5.3, Y0 = 0.818, Y1 = 1.004;
 
 const tip = document.getElementById("tip");
 function showTip(evt, html) {
@@ -193,10 +199,10 @@ function draw() {
     const t = el("text", {x: M.l - 11, y: Y(v) + 4, class: "tick", "text-anchor": "end"});
     t.textContent = v.toFixed(2); svg.appendChild(t);
   }
-  for (let v = 0.5; v <= 2.6001; v += 0.5) {
+  for (let v = 1; v <= 5.0001; v += 1) {
     svg.appendChild(el("line", {x1: X(v), x2: X(v), y1: M.t, y2: M.t + ih, class: "grid"}));
     const t = el("text", {x: X(v), y: M.t + ih + 21, class: "tick", "text-anchor": "middle"});
-    t.textContent = v.toFixed(1); svg.appendChild(t);
+    t.textContent = v.toFixed(0); svg.appendChild(t);
   }
   svg.appendChild(el("line", {x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih, class: "axis"}));
   svg.appendChild(el("line", {x1: M.l, x2: M.l, y1: M.t, y2: M.t + ih, class: "axis"}));
@@ -213,33 +219,45 @@ function draw() {
       stroke: "var(--link)", "stroke-width": 1}));
   });
 
-  [[fl, "var(--fl)", "diamond"], [bq, "var(--bq)", "circle"]].forEach(([pts, color, kind]) => {
-    svg.appendChild(el("polyline", {points: pts.map(d => `${X(d.p95)},${Y(d.r)}`).join(" "),
-      fill: "none", stroke: color, "stroke-width": 2, "stroke-linejoin": "round"}));
-    pts.forEach((d, i) => {
-      const cx = X(d.p95), cy = Y(d.r);
-      svg.appendChild(kind === "circle"
-        ? el("circle", {cx, cy, r: 5, fill: color, stroke: "var(--surface)", "stroke-width": 2})
-        : el("path", {d: `M${cx} ${cy - 6}L${cx + 6} ${cy}L${cx} ${cy + 6}L${cx - 6} ${cy}Z`,
-                      fill: color, stroke: "var(--surface)", "stroke-width": 1.5}));
-      const h = el("circle", {cx, cy, r: 14, class: "hit"});
-      const what = kind === "circle"
-        ? `binary quantization, ${fmtO(OS[i])} oversampling`
-        : `no quantization, ef=${poolOf(OS[i])}`;
-      h.addEventListener("mousemove", e => showTip(e,
-        `<b>${what}</b><br>pool ${poolOf(OS[i])} candidates<br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(2)} ms`));
-      h.addEventListener("mouseleave", hideTip);
-      svg.appendChild(h);
-    });
+  /* the uncompressed control frontier, ef 10 to 512 */
+  svg.appendChild(el("polyline", {points: flAll.map(d => `${X(d.p95)},${Y(d.r)}`).join(" "),
+    fill: "none", stroke: "var(--fl)", "stroke-width": 2, "stroke-linejoin": "round"}));
+  flAll.forEach(d => {
+    const cx = X(d.p95), cy = Y(d.r), matched = fl.some(m => m.ef === d.ef);
+    svg.appendChild(el("path", {d: `M${cx} ${cy - 6}L${cx + 6} ${cy}L${cx} ${cy + 6}L${cx - 6} ${cy}Z`,
+      fill: matched ? "var(--fl)" : "var(--surface)", stroke: "var(--fl)", "stroke-width": 1.8}));
+    const h = el("circle", {cx, cy, r: 14, class: "hit"});
+    h.addEventListener("mousemove", e => showTip(e,
+      `<b>No quantization, ef=${d.ef}</b><br>${matched ? "pool-matched to " + (d.ef / limit) + "\u00d7 oversampling" : "ef sweep only"}` +
+      `<br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(2)} ms`));
+    h.addEventListener("mouseleave", hideTip);
+    svg.appendChild(h);
+  });
+
+  /* binary quantization across the oversampling sweep */
+  svg.appendChild(el("polyline", {points: bq.map(d => `${X(d.p95)},${Y(d.r)}`).join(" "),
+    fill: "none", stroke: "var(--bq)", "stroke-width": 2, "stroke-linejoin": "round"}));
+  bq.forEach((d, i) => {
+    const cx = X(d.p95), cy = Y(d.r);
+    svg.appendChild(el("circle", {cx, cy, r: 5, fill: "var(--bq)", stroke: "var(--surface)", "stroke-width": 2}));
+    const h = el("circle", {cx, cy, r: 14, class: "hit"});
+    h.addEventListener("mousemove", e => showTip(e,
+      `<b>Binary quantization, ${fmtO(OS[i])} oversampling</b><br>pool ${poolOf(OS[i])} candidates` +
+      `<br>recall ${d.r.toFixed(4)}<br>p95 ${d.p95.toFixed(2)} ms`));
+    h.addEventListener("mouseleave", hideTip);
+    svg.appendChild(h);
   });
 
   /* pool labels on the two endpoints and one mid pair */
   [0, 3, 9].forEach(i => {
     text(svg, X(bq[i].p95), Y(bq[i].r) + 20, `pool ${poolOf(OS[i])}`, "var(--bq)");
     // the last green label would sit under the equal-recall bracket, so send it right
-    if (i === 9) text(svg, X(fl[i].p95) + 11, Y(fl[i].r) + 4, `pool ${poolOf(OS[i])}`, "var(--fl)", "start");
-    else text(svg, X(fl[i].p95), Y(fl[i].r) - 13, `pool ${poolOf(OS[i])}`, "var(--fl)");
+    // the pool-160 pair sits under the equal-recall bracket, so drop its label below the mark
+    text(svg, X(fl[i].p95), Y(fl[i].r) + (i === 9 ? 20 : -13), `pool ${poolOf(OS[i])}`, "var(--fl)");
   });
+
+  const far = flAll[flAll.length - 1];
+  text(svg, X(far.p95), Y(far.r) - 13, `ef ${far.ef}`, "var(--fl)");
 
   /* the equal-recall read */
   const target = bq[9];
